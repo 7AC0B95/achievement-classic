@@ -19,13 +19,6 @@ In-game after an update: `/reload`.
 | Continuous (default) | `Update-Addon.bat` — polls every 10s |
 | Faster polling | `Update-Addon.bat -IntervalSeconds 5` |
 | One-shot update | `Update-Addon.bat -Once` |
-| Background hourly | Double-click `Install-AutoUpdate.bat` (Task Scheduler) |
-
-## Uninstall scheduled auto-update
-
-```powershell
-powershell -ExecutionPolicy Bypass -File ".\Install-AutoUpdate.ps1" -Uninstall
-```
 
 ## Notes
 

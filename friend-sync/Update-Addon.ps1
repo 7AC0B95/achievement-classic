@@ -12,7 +12,7 @@
 #>
 [CmdletBinding()]
 param(
-  # Check once and exit (used by the scheduled task).
+  # Check once and exit (manual one-shot update).
   [switch]$Once,
 
   # Skip the "press Enter to close" pause.

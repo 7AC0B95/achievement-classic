@@ -26,10 +26,23 @@ local selectedCategory
 local categoryButtons = {}
 local cardPool = {}
 local peerCardPool = {}
+local peerHeaderPool = {}
 local viewingPeer -- fullName when inspecting another player; nil = self
 local playersMode = false -- true when sidebar "Players" list is shown
 local playersBtn
 local youBtn
+local playerSearchText = ""
+local playerStatusFilter = "all" -- all | addon | pending | noaddon
+local PLAYERS_TOOLBAR_H = 58
+local SCROLL_TOP_DEFAULT = -50
+local SCROLL_TOP_PLAYERS = -(50 + PLAYERS_TOOLBAR_H)
+
+local PLAYER_SECTIONS = {
+  { id = "group",   title = "Group / Raid" },
+  { id = "guild",   title = "Guild" },
+  { id = "inspect", title = "Inspected" },
+  { id = "other",   title = "Other" },
+}
 
 local function IsShownComplete(achievementId)
   if viewingPeer and LA.Share then
@@ -65,20 +78,45 @@ local function GetShownPoints()
   return LA:GetEarnedPoints() or 0
 end
 
+local function GetCompareCounts(categoryId)
+  local list = LA:GetAchievementsByCategory(categoryId)
+  local them, you, both, total = 0, 0, 0, #list
+  for _, def in ipairs(list) do
+    local peerDone = LA.Share and LA.Share:IsPeerComplete(viewingPeer, def.id)
+    local selfDone = LA:IsComplete(def.id)
+    if peerDone then
+      them = them + 1
+    end
+    if selfDone then
+      you = you + 1
+    end
+    if peerDone and selfDone then
+      both = both + 1
+    end
+  end
+  return them, you, both, total
+end
+
 local function UpdateHeaderContext()
   local f = UI.frame
   if not f then
     return
   end
   if f.pointsLabel then
-    f.pointsLabel:SetText(GetShownPoints() .. " points")
+    if viewingPeer then
+      local themPts = GetShownPoints()
+      local youPts = LA:GetEarnedPoints() or 0
+      f.pointsLabel:SetText("Them " .. themPts .. " / You " .. youPts)
+    else
+      f.pointsLabel:SetText(GetShownPoints() .. " points")
+    end
   end
   if youBtn then
     if viewingPeer then
       youBtn:Show()
       local short = viewingPeer:match("^(.+)%-") or viewingPeer
       if f.viewLabel then
-        f.viewLabel:SetText("Viewing: " .. short)
+        f.viewLabel:SetText("Comparing: " .. short)
         f.viewLabel:Show()
       end
     else
@@ -100,6 +138,7 @@ local C = {
   grey       = { 0.55, 0.55, 0.55 },
   greyTitle  = { 0.62, 0.62, 0.58 },
   green      = { 0.25, 0.75, 0.25 },
+  red        = { 0.90, 0.28, 0.22 },
   woodDark   = { 0.10, 0.07, 0.04 },
   parchment  = { 0.78, 0.68, 0.48 },
   cardDone   = { 0.16, 0.13, 0.06, 0.95 },
@@ -161,7 +200,27 @@ end
 
 local function AcquireCard(parent, index)
   if cardPool[index] then
-    return cardPool[index]
+    local existing = cardPool[index]
+    -- Hot-upgrade pooled cards created before compare UI existed
+    if not existing.youCheck then
+      local youCheck = existing:CreateTexture(nil, "OVERLAY")
+      youCheck:SetDrawLayer("OVERLAY", 7)
+      youCheck:SetSize(18, 18)
+      youCheck:SetPoint("TOPRIGHT", existing.icon, "TOPRIGHT", 5, 5)
+      youCheck:SetTexture("Interface\\RaidFrame\\ReadyCheck-Ready")
+      youCheck:SetVertexColor(0.45, 0.85, 1.0)
+      youCheck:Hide()
+      existing.youCheck = youCheck
+    end
+    if not existing.compareLabel then
+      local compareLabel = existing:CreateFontString(nil, "OVERLAY")
+      SetFS(compareLabel, 11)
+      compareLabel:SetJustifyH("RIGHT")
+      compareLabel:SetPoint("BOTTOMRIGHT", existing, "BOTTOMRIGHT", -CARD_PAD, 14)
+      compareLabel:Hide()
+      existing.compareLabel = compareLabel
+    end
+    return existing
   end
 
   local card = CreateFrame("Button", nil, parent, "BackdropTemplate")
@@ -203,13 +262,31 @@ local function AcquireCard(parent, index)
   icon:SetTexCoord(0.07, 0.93, 0.07, 0.93)
   card.icon = icon
 
-  -- Completed check overlay (hidden unless earned)
+  -- Completed check overlay (hidden unless earned) — peer / primary
   local check = card:CreateTexture(nil, "OVERLAY", nil, 7)
   check:SetSize(22, 22)
   check:SetPoint("BOTTOMRIGHT", icon, "BOTTOMRIGHT", 4, -4)
   check:SetTexture("Interface\\RaidFrame\\ReadyCheck-Ready")
   check:Hide()
   card.check = check
+
+  -- Your completion mark when comparing (top-right of icon)
+  local youCheck = card:CreateTexture(nil, "OVERLAY")
+  youCheck:SetDrawLayer("OVERLAY", 7)
+  youCheck:SetSize(18, 18)
+  youCheck:SetPoint("TOPRIGHT", icon, "TOPRIGHT", 5, 5)
+  youCheck:SetTexture("Interface\\RaidFrame\\ReadyCheck-Ready")
+  youCheck:SetVertexColor(0.45, 0.85, 1.0)
+  youCheck:Hide()
+  card.youCheck = youCheck
+
+  -- Compare legend (Them / You) — avoid name "compare" (easy to confuse with logic)
+  local compareLabel = card:CreateFontString(nil, "OVERLAY")
+  SetFS(compareLabel, 11)
+  compareLabel:SetJustifyH("RIGHT")
+  compareLabel:SetPoint("BOTTOMRIGHT", card, "BOTTOMRIGHT", -CARD_PAD, 14)
+  compareLabel:Hide()
+  card.compareLabel = compareLabel
 
   -- Title
   local title = card:CreateFontString(nil, "OVERLAY")
@@ -239,7 +316,7 @@ local function AcquireCard(parent, index)
   Color(points, "gold")
   card.points = points
 
-  -- Date earned
+  -- Date earned (self view); hidden while comparing
   local status = card:CreateFontString(nil, "OVERLAY")
   SetFS(status, 12)
   status:SetJustifyH("RIGHT")
@@ -290,16 +367,71 @@ local function AcquireCard(parent, index)
     self:SetBackdropBorderColor(0.95, 0.80, 0.30, 1)
   end)
   card:SetScript("OnLeave", function(self)
-    local complete = self.def and IsShownComplete(self.def.id)
-    if complete then
-      self:SetBackdropBorderColor(unpack(C.borderGold))
+    if self._borderR then
+      self:SetBackdropBorderColor(self._borderR, self._borderG, self._borderB, self._borderA or 1)
     else
-      self:SetBackdropBorderColor(unpack(C.borderDim))
+      local complete = self.def and IsShownComplete(self.def.id)
+      if complete then
+        self:SetBackdropBorderColor(unpack(C.borderGold))
+      else
+        self:SetBackdropBorderColor(unpack(C.borderDim))
+      end
     end
   end)
 
   cardPool[index] = card
   return card
+end
+
+--- Apply peer-vs-you compare chrome to a card. Returns peerDone, selfDone.
+local function ApplyCompareChrome(card, achievementId)
+  local peerDone = IsShownComplete(achievementId) and true or false
+  local selfDone = LA:IsComplete(achievementId) and true or false
+
+  if card.youCheck then
+    if selfDone then
+      card.youCheck:Show()
+    else
+      card.youCheck:Hide()
+    end
+  end
+
+  local label = card.compareLabel or card.compare
+  if label then
+    local themMark = peerDone and "|cff3dbe3dThem|r" or "|cff777777Them|r"
+    local youMark = selfDone and "|cff73d0ffYou|r" or "|cff777777You|r"
+    label:SetText(themMark .. "  /  " .. youMark)
+    label:Show()
+  end
+
+  if card.status then
+    card.status:Hide()
+  end
+
+  -- Border: both gold, them-only gold, you-only cool tint, neither dim
+  local br, bg, bb, ba = 0.40, 0.34, 0.22, 1
+  if peerDone and selfDone then
+    br, bg, bb, ba = 0.72, 0.58, 0.22, 1
+  elseif peerDone then
+    br, bg, bb, ba = 0.72, 0.58, 0.22, 1
+  elseif selfDone then
+    br, bg, bb, ba = 0.35, 0.55, 0.72, 1
+  end
+  card._borderR, card._borderG, card._borderB, card._borderA = br, bg, bb, ba
+  card:SetBackdropBorderColor(br, bg, bb, ba)
+
+  return peerDone, selfDone
+end
+
+local function ClearCompareChrome(card)
+  if card.youCheck then
+    card.youCheck:Hide()
+  end
+  local label = card.compareLabel or card.compare
+  if label then
+    label:Hide()
+  end
+  card._borderR, card._borderG, card._borderB, card._borderA = nil, nil, nil, nil
 end
 
 local function ReleaseCardsFrom(startIndex)
@@ -316,12 +448,37 @@ local function ReleasePeerCardsFrom(startIndex)
   end
 end
 
+local function ReleasePeerHeadersFrom(startIndex)
+  for i = startIndex, #peerHeaderPool do
+    peerHeaderPool[i]:Hide()
+  end
+end
+
 local function HideAchievementCards()
   ReleaseCardsFrom(1)
 end
 
 local function HidePeerCards()
   ReleasePeerCardsFrom(1)
+  ReleasePeerHeadersFrom(1)
+end
+
+local function SetPlayersToolbarVisible(visible)
+  local bar = UI.playersToolbar
+  local scrollFrame = UI.scrollFrame
+  if bar then
+    if visible then
+      bar:Show()
+    else
+      bar:Hide()
+    end
+  end
+  if scrollFrame then
+    scrollFrame:ClearAllPoints()
+    local top = visible and SCROLL_TOP_PLAYERS or SCROLL_TOP_DEFAULT
+    scrollFrame:SetPoint("TOPLEFT", 10, top)
+    scrollFrame:SetPoint("BOTTOMRIGHT", -32, 10)
+  end
 end
 
 local function GetViewWidth()
@@ -351,6 +508,7 @@ local function PopulateAchievements(categoryId)
 
   HidePeerCards()
   playersMode = false
+  SetPlayersToolbarVisible(false)
 
   local viewW = GetViewWidth()
   scrollChild:SetWidth(viewW)
@@ -377,9 +535,15 @@ local function PopulateAchievements(categoryId)
     card.desc:SetPoint("TOPLEFT", card.title, "BOTTOMLEFT", 0, -6)
 
     local complete = IsShownComplete(def.id)
+    local selfDone = LA:IsComplete(def.id)
 
     card.icon:SetTexture(def.icon or "Interface\\Icons\\INV_Misc_QuestionMark")
-    card.icon:SetDesaturated(not complete)
+    -- In compare mode, saturate if either player earned it so "you only" still reads clearly
+    if viewingPeer then
+      card.icon:SetDesaturated(not (complete or selfDone))
+    else
+      card.icon:SetDesaturated(not complete)
+    end
 
     card.title:SetText(def.title or "")
     card.desc:SetText(def.description or "")
@@ -396,6 +560,17 @@ local function PopulateAchievements(categoryId)
       card.iconSlot:SetVertexColor(1.0, 0.88, 0.35)
       card.check:Show()
       card.wash:SetAlpha(0.28)
+    elseif viewingPeer and selfDone then
+      -- They lack it; you have it — cooler wash so the gap is obvious
+      Color(card.title, "cream")
+      card.desc:SetTextColor(0.70, 0.78, 0.88, 1)
+      card:SetBackdropColor(0.08, 0.10, 0.14, 0.94)
+      if card.accent.SetColorTexture then
+        card.accent:SetColorTexture(0.35, 0.55, 0.72, 0.9)
+      end
+      card.iconSlot:SetVertexColor(0.55, 0.72, 0.90)
+      card.check:Hide()
+      card.wash:SetAlpha(0.18)
     else
       Color(card.title, "greyTitle")
       card.desc:SetTextColor(0.62, 0.58, 0.48, 1)
@@ -418,31 +593,38 @@ local function PopulateAchievements(categoryId)
       Color(card.points, "goldDim")
       card.points:Show()
     end
-    if complete then
+    if complete or (viewingPeer and selfDone) then
       Color(card.points, "gold")
     else
       card.points:SetTextColor(0.55, 0.50, 0.35, 1)
     end
 
     local current, required = GetShownProgress(def.id)
-    if complete then
+    if viewingPeer then
+      ApplyCompareChrome(card, def.id)
+      card.barBg:Hide()
+      card.desc:SetHeight(42)
+    elseif complete then
+      ClearCompareChrome(card)
       card.barBg:Hide()
       local earned = GetShownEarnedDate(def.id)
       if earned then
         card.status:SetText(FormatDate(earned))
-      elseif viewingPeer then
-        card.status:SetText("Earned")
       else
         card.status:SetText("")
       end
       card.status:Show()
-      -- Give description more vertical room when no bar
       card.desc:SetHeight(42)
+      card:SetBackdropBorderColor(0.72, 0.58, 0.22, 1)
+      card._borderR, card._borderG, card._borderB, card._borderA = 0.72, 0.58, 0.22, 1
     else
+      ClearCompareChrome(card)
       card.status:SetText("")
       card.status:Hide()
       card.desc:SetHeight(34)
-      if required > 1 and not viewingPeer then
+      card:SetBackdropBorderColor(0.40, 0.34, 0.22, 1)
+      card._borderR, card._borderG, card._borderB, card._borderA = 0.40, 0.34, 0.22, 1
+      if required > 1 then
         card.barBg:Show()
         card.bar:SetMinMaxValues(0, required)
         card.bar:SetValue(math.min(current, required))
@@ -478,14 +660,23 @@ local function PopulateAchievements(categoryId)
         break
       end
     end
-    local earned, total = 0, #list
-    for _, def in ipairs(list) do
-      if IsShownComplete(def.id) then
-        earned = earned + 1
-      end
-    end
     UI.frame.catLabel:SetText(catName)
-    UI.frame.catCount:SetText(earned .. " / " .. total .. " earned")
+    if viewingPeer then
+      local them, you, both, total = GetCompareCounts(categoryId)
+      UI.frame.catCount:SetText(
+        "Them " .. them .. "/" .. total
+          .. " | You " .. you .. "/" .. total
+          .. " | Both " .. both
+      )
+    else
+      local earned, total = 0, #list
+      for _, def in ipairs(list) do
+        if IsShownComplete(def.id) then
+          earned = earned + 1
+        end
+      end
+      UI.frame.catCount:SetText(earned .. " / " .. total .. " earned")
+    end
   end
 
   UpdateHeaderContext()
@@ -498,6 +689,7 @@ end
 local function SelectCategory(categoryId)
   selectedCategory = categoryId
   playersMode = false
+  SetPlayersToolbarVisible(false)
   for id, btn in pairs(categoryButtons) do
     local active = (id == categoryId)
     btn.selected = active
@@ -592,11 +784,79 @@ local function AcquirePeerCard(parent, index)
     self:SetBackdropBorderColor(0.95, 0.80, 0.30, 1)
   end)
   card:SetScript("OnLeave", function(self)
-    self:SetBackdropBorderColor(unpack(C.borderDim))
+    if self.noAddon then
+      self:SetBackdropBorderColor(0.75, 0.25, 0.20, 1)
+    else
+      self:SetBackdropBorderColor(unpack(C.borderDim))
+    end
   end)
 
   peerCardPool[index] = card
   return card
+end
+
+local function AcquirePeerHeader(parent, index)
+  if peerHeaderPool[index] then
+    return peerHeaderPool[index]
+  end
+
+  local row = CreateFrame("Frame", nil, parent)
+  row:SetHeight(22)
+
+  local label = row:CreateFontString(nil, "OVERLAY")
+  SetFS(label, 13)
+  label:SetPoint("LEFT", 4, 0)
+  label:SetPoint("RIGHT", -4, 0)
+  label:SetJustifyH("LEFT")
+  Color(label, "goldDim")
+  row.label = label
+
+  peerHeaderPool[index] = row
+  return row
+end
+
+local function PeerMatchesStatus(peer, filter)
+  if filter == "all" then
+    return true
+  elseif filter == "addon" then
+    return peer.hasAddon and true or false
+  elseif filter == "pending" then
+    return (not peer.hasAddon) and peer.pending
+  elseif filter == "noaddon" then
+    return (not peer.hasAddon) and (not peer.pending)
+  end
+  return true
+end
+
+local function PeerMatchesSearch(peer, query)
+  if not query or query == "" then
+    return true
+  end
+  local q = strlower(query)
+  local name = strlower(peer.name or "")
+  local key = strlower(peer.key or "")
+  local realm = strlower(peer.realm or "")
+  return name:find(q, 1, true) or key:find(q, 1, true) or realm:find(q, 1, true)
+end
+
+local function UpdatePlayerFilterButtons()
+  local bar = UI.playersToolbar
+  if not bar or not bar.filterButtons then
+    return
+  end
+  for id, btn in pairs(bar.filterButtons) do
+    local active = (id == playerStatusFilter)
+    btn.active = active
+    if active then
+      btn:SetBackdropBorderColor(0.95, 0.80, 0.30, 1)
+      btn:SetBackdropColor(0.35, 0.26, 0.08, 0.95)
+      Color(btn.label, "gold")
+    else
+      btn:SetBackdropBorderColor(unpack(C.borderDim))
+      btn:SetBackdropColor(0.12, 0.10, 0.06, 0.9)
+      btn.label:SetTextColor(0.75, 0.70, 0.55, 1)
+    end
+  end
 end
 
 local function ViewPeer(peerKey)
@@ -609,6 +869,7 @@ local function ViewPeer(peerKey)
   end
   LA.Share:RequestPeer(peerKey)
   playersMode = false
+  SetPlayersToolbarVisible(false)
   SetPlayersSidebarSelected(false)
   -- Show General category through peer lens by default
   local catId = selectedCategory or (LA.Categories[1] and LA.Categories[1].id)
@@ -646,6 +907,8 @@ local function PopulatePlayers()
   HideAchievementCards()
   playersMode = true
   SetPlayersSidebarSelected(true)
+  SetPlayersToolbarVisible(true)
+  UpdatePlayerFilterButtons()
 
   if LA.Share and LA.Share.Announce then
     LA.Share:Announce()
@@ -655,50 +918,144 @@ local function PopulatePlayers()
   scrollChild:SetWidth(viewW)
 
   local peers = (LA.Share and LA.Share.GetPeerList and LA.Share:GetPeerList()) or {}
-  local y = -4
+  local filtered = {}
+  local onlineWithAddon = 0
+  for _, peer in ipairs(peers) do
+    if peer.hasAddon then
+      onlineWithAddon = onlineWithAddon + 1
+    end
+    if PeerMatchesSearch(peer, playerSearchText) and PeerMatchesStatus(peer, playerStatusFilter) then
+      filtered[#filtered + 1] = peer
+    end
+  end
 
-  if #peers == 0 then
-    -- Empty state uses a lightweight peer card slot
-    local card = AcquirePeerCard(scrollChild, 1)
-    card.peerKey = nil
+  local bySource = {
+    group = {},
+    guild = {},
+    inspect = {},
+    other = {},
+  }
+  for _, peer in ipairs(filtered) do
+    local src = peer.source or "other"
+    if not bySource[src] then
+      src = "other"
+    end
+    bySource[src][#bySource[src] + 1] = peer
+  end
+
+  local y = -4
+  local cardIndex = 0
+  local headerIndex = 0
+
+  local function placeCard(peer)
+    cardIndex = cardIndex + 1
+    local card = AcquirePeerCard(scrollChild, cardIndex)
+    card.peerKey = peer.key
     card:ClearAllPoints()
     card:SetWidth(viewW - 10)
     card:SetPoint("TOPLEFT", scrollChild, "TOPLEFT", 4, y)
-    card.name:SetText("No players found yet")
-    card.detail:SetText("Guild, party, and raid members with the addon appear here. Target a player and type /la inspect.")
-    card:SetScript("OnClick", nil)
-    card:Show()
-    ReleasePeerCardsFrom(2)
-    y = y - 76
-  else
-    for i, peer in ipairs(peers) do
-      local card = AcquirePeerCard(scrollChild, i)
-      card.peerKey = peer.key
-      card:ClearAllPoints()
-      card:SetWidth(viewW - 10)
-      card:SetPoint("TOPLEFT", scrollChild, "TOPLEFT", 4, y)
-      card.name:SetText(peer.name or peer.key)
+    card.name:SetText(peer.name or peer.key)
+
+    if peer.hasAddon then
+      card.noAddon = false
+      Color(card.name, "gold")
+      card.detail:SetTextColor(0.75, 0.70, 0.55, 1)
       local syncNote = peer.syncing and " (syncing…)" or ""
       card.detail:SetText(
         (peer.points or 0) .. " points  ·  " .. (peer.count or 0) .. " earned" .. syncNote
       )
-      card:SetScript("OnClick", function(self)
-        if self.peerKey then
-          ViewPeer(self.peerKey)
-        end
-      end)
-      card:Show()
-      y = y - 76
+      card:SetBackdropBorderColor(unpack(C.borderDim))
+    elseif peer.pending then
+      card.noAddon = false
+      Color(card.name, "greyTitle")
+      card.detail:SetTextColor(0.62, 0.62, 0.58, 1)
+      card.detail:SetText("Awaiting addon response…")
+      card:SetBackdropBorderColor(unpack(C.borderDim))
+    else
+      card.noAddon = true
+      Color(card.name, "red")
+      card.detail:SetTextColor(0.90, 0.40, 0.32, 1)
+      card.detail:SetText("No addon (no response)")
+      card:SetBackdropBorderColor(0.75, 0.25, 0.20, 1)
     end
-    ReleasePeerCardsFrom(#peers + 1)
+
+    card:SetScript("OnClick", function(self)
+      if self.peerKey then
+        ViewPeer(self.peerKey)
+      end
+    end)
+    card:Show()
+    y = y - 76
   end
+
+  if #peers == 0 then
+    cardIndex = 1
+    local card = AcquirePeerCard(scrollChild, 1)
+    card.peerKey = nil
+    card.noAddon = false
+    card:ClearAllPoints()
+    card:SetWidth(viewW - 10)
+    card:SetPoint("TOPLEFT", scrollChild, "TOPLEFT", 4, y)
+    Color(card.name, "gold")
+    card.name:SetText("No players found yet")
+    card.detail:SetTextColor(0.75, 0.70, 0.55, 1)
+    card.detail:SetText("Guild, party, and raid members with the addon appear here. Target a player and type /la inspect.")
+    card:SetBackdropBorderColor(unpack(C.borderDim))
+    card:SetScript("OnClick", nil)
+    card:Show()
+    y = y - 76
+  elseif #filtered == 0 then
+    cardIndex = 1
+    local card = AcquirePeerCard(scrollChild, 1)
+    card.peerKey = nil
+    card.noAddon = false
+    card:ClearAllPoints()
+    card:SetWidth(viewW - 10)
+    card:SetPoint("TOPLEFT", scrollChild, "TOPLEFT", 4, y)
+    Color(card.name, "gold")
+    card.name:SetText("No matching players")
+    card.detail:SetTextColor(0.75, 0.70, 0.55, 1)
+    card.detail:SetText("Try a different search or status filter.")
+    card:SetBackdropBorderColor(unpack(C.borderDim))
+    card:SetScript("OnClick", nil)
+    card:Show()
+    y = y - 76
+  else
+    for _, section in ipairs(PLAYER_SECTIONS) do
+      local list = bySource[section.id]
+      if list and #list > 0 then
+        headerIndex = headerIndex + 1
+        local header = AcquirePeerHeader(scrollChild, headerIndex)
+        header:ClearAllPoints()
+        header:SetWidth(viewW - 10)
+        header:SetPoint("TOPLEFT", scrollChild, "TOPLEFT", 4, y)
+        header.label:SetText(section.title .. "  (" .. #list .. ")")
+        header:Show()
+        y = y - 26
+        for _, peer in ipairs(list) do
+          placeCard(peer)
+        end
+        y = y - 6
+      end
+    end
+  end
+
+  ReleasePeerCardsFrom(cardIndex + 1)
+  ReleasePeerHeadersFrom(headerIndex + 1)
 
   local contentH = math.max(scrollFrame:GetHeight() or 400, (-y) + 12)
   scrollChild:SetHeight(contentH)
 
   if UI.frame then
     UI.frame.catLabel:SetText("Players")
-    UI.frame.catCount:SetText(#peers .. " online with addon")
+    local shown = #filtered
+    if #peers == 0 then
+      UI.frame.catCount:SetText("0 online with addon")
+    elseif shown == #peers then
+      UI.frame.catCount:SetText(onlineWithAddon .. " online with addon")
+    else
+      UI.frame.catCount:SetText(shown .. " shown · " .. onlineWithAddon .. " with addon")
+    end
   end
   UpdateHeaderContext()
 end
@@ -1076,10 +1433,119 @@ function UI:Init()
   catRule:SetHeight(1)
   catRule:SetPoint("TOPLEFT", 12, -40)
   catRule:SetPoint("TOPRIGHT", -32, -40)
+  f.catRule = catRule
+  f.main = main
+
+  -- Players-only search + status filter strip (shown under catBar)
+  local playersToolbar = CreateFrame("Frame", nil, main)
+  playersToolbar:SetPoint("TOPLEFT", 12, -46)
+  playersToolbar:SetPoint("TOPRIGHT", -32, -46)
+  playersToolbar:SetHeight(PLAYERS_TOOLBAR_H)
+  playersToolbar:Hide()
+  UI.playersToolbar = playersToolbar
+
+  local searchBox = CreateFrame("EditBox", "LaucobsAchievementsPlayerSearch", playersToolbar, "InputBoxTemplate")
+  searchBox:SetAutoFocus(false)
+  searchBox:SetHeight(22)
+  searchBox:SetPoint("TOPLEFT", 4, -2)
+  searchBox:SetPoint("TOPRIGHT", -4, -2)
+  searchBox:SetFont(FONT, 13, "")
+  searchBox:SetTextColor(0.95, 0.90, 0.75, 1)
+  searchBox:SetMaxLetters(40)
+  playersToolbar.searchBox = searchBox
+
+  local searchHint = playersToolbar:CreateFontString(nil, "OVERLAY")
+  SetFS(searchHint, 12)
+  searchHint:SetPoint("LEFT", searchBox, "LEFT", 8, 0)
+  searchHint:SetText("Search players…")
+  searchHint:SetTextColor(0.55, 0.50, 0.40, 1)
+  playersToolbar.searchHint = searchHint
+
+  searchBox:SetScript("OnTextChanged", function(self, userInput)
+    local text = self:GetText() or ""
+    if text == "" and not self:HasFocus() then
+      searchHint:Show()
+    else
+      searchHint:Hide()
+    end
+    if text == playerSearchText then
+      return
+    end
+    playerSearchText = text
+    if playersMode then
+      PopulatePlayers()
+    end
+  end)
+  searchBox:SetScript("OnEscapePressed", function(self)
+    self:ClearFocus()
+    if (self:GetText() or "") ~= "" then
+      self:SetText("")
+      playerSearchText = ""
+      if playersMode then
+        PopulatePlayers()
+      end
+    end
+  end)
+  searchBox:SetScript("OnEnterPressed", function(self)
+    self:ClearFocus()
+  end)
+  searchBox:SetScript("OnEditFocusGained", function()
+    searchHint:Hide()
+  end)
+  searchBox:SetScript("OnEditFocusLost", function(self)
+    if (self:GetText() or "") == "" then
+      searchHint:Show()
+    end
+  end)
+
+  local filterDefs = {
+    { id = "all",     label = "All",      width = 48 },
+    { id = "addon",   label = "Addon",    width = 58 },
+    { id = "pending", label = "Pending",  width = 68 },
+    { id = "noaddon", label = "No addon", width = 78 },
+  }
+  playersToolbar.filterButtons = {}
+  local filterX = 4
+  for _, def in ipairs(filterDefs) do
+    local btn = CreateFrame("Button", nil, playersToolbar, "BackdropTemplate")
+    btn:SetSize(def.width, 22)
+    btn:SetPoint("TOPLEFT", filterX, -30)
+    btn:SetBackdrop({
+      bgFile   = "Interface\\Tooltips\\UI-Tooltip-Background",
+      edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
+      tile = true, tileSize = 8, edgeSize = 10,
+      insets = { left = 2, right = 2, top = 2, bottom = 2 },
+    })
+    btn:SetBackdropColor(0.12, 0.10, 0.06, 0.9)
+    btn:SetBackdropBorderColor(unpack(C.borderDim))
+
+    local flabel = btn:CreateFontString(nil, "OVERLAY")
+    SetFS(flabel, 11)
+    flabel:SetPoint("CENTER")
+    flabel:SetText(def.label)
+    flabel:SetTextColor(0.75, 0.70, 0.55, 1)
+    btn.label = flabel
+    btn.filterId = def.id
+
+    btn:SetScript("OnClick", function(self)
+      if playerStatusFilter == self.filterId then
+        return
+      end
+      playerStatusFilter = self.filterId
+      UpdatePlayerFilterButtons()
+      if playersMode then
+        PopulatePlayers()
+      end
+    end)
+
+    playersToolbar.filterButtons[def.id] = btn
+    filterX = filterX + def.width + 4
+  end
+  UpdatePlayerFilterButtons()
 
   -- Scroll area
   local scrollFrame = CreateFrame("ScrollFrame", "LaucobsAchievementsScrollFrame", main, "UIPanelScrollFrameTemplate")
-  scrollFrame:SetPoint("TOPLEFT", 10, -50)
+  scrollFrame:SetPoint("TOPLEFT", 10, SCROLL_TOP_DEFAULT)
   scrollFrame:SetPoint("BOTTOMRIGHT", -32, 10)
   f.scrollFrame = scrollFrame
   UI.scrollFrame = scrollFrame
@@ -1099,7 +1565,6 @@ function UI:Init()
   end)
 
   f:SetScript("OnShow", function()
-    f.pointsLabel:SetText(GetShownPoints() .. " points")
     if LA.Share and LA.Share.Announce then
       LA.Share:Announce()
     end
@@ -1154,7 +1619,6 @@ function UI:Refresh()
   if not self.frame then
     return
   end
-  self.frame.pointsLabel:SetText(GetShownPoints() .. " points")
   UpdateHeaderContext()
   if not self.frame:IsShown() then
     return
@@ -1181,6 +1645,14 @@ end
 function UI:ShowPeer(fullName)
   if not self.frame then
     self:Init()
+  end
+  -- Set compare target before Show() so OnShow / deferred layout use the right mode.
+  if fullName then
+    viewingPeer = fullName
+    if LA.Share then
+      LA.Share.viewing = fullName
+    end
+    playersMode = false
   end
   self.frame:Show()
   if fullName then

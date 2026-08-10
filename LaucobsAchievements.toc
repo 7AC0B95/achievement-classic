@@ -2,7 +2,7 @@
 ## Title: Laucob's Achievements
 ## Notes: Retail-style achievement tracking for Classic Era / Hardcore. Share completed achievements with guild, party, and raid.
 ## Author: Laucob
-## Version: 0.2.0
+## Version: 0.2.1
 ## SavedVariables: LaucobsAchievementsDB
 
 Core.lua

@@ -11,10 +11,11 @@ LA.Share = Share
 local PREFIX = "LAACH"
 local PROTOCOL_VER = 1
 local PEER_TTL = 600 -- seconds; drop silent peers after ~10 minutes
+local INSPECT_TIMEOUT = 8 -- seconds to wait for a valid inspect reply
 local SEND_GAP = 0.35 -- throttle between outbound addon messages
 local MAX_MSG = 240 -- stay under 255 with headroom
 
-Share.peers = {} -- [fullName] = { name, realm, points, count, completed, lastSeen, version, syncing }
+Share.peers = {} -- [fullName] = { name, realm, points, count, completed, lastSeen, version, syncing, hasAddon, pending, viaGroup, viaGuild, viaInspect }
 Share.viewing = nil -- fullName of peer being inspected, or nil for self
 
 local frame = CreateFrame("Frame")
@@ -23,6 +24,12 @@ local sendElapsed = 0
 local started = false
 local lastHelloAt = 0
 local HELLO_COOLDOWN = 5
+
+-- Display categories for the Players browser (priority: group > guild > inspect)
+Share.SOURCE_GROUP = "group"
+Share.SOURCE_GUILD = "guild"
+Share.SOURCE_INSPECT = "inspect"
+Share.SOURCE_OTHER = "other"
 
 ---------------------------------------------------------------------------
 -- Helpers
@@ -122,12 +129,139 @@ local function EnsurePeer(fullName)
       version = PROTOCOL_VER,
       syncing = false,
       syncBuf = {},
+      hasAddon = false,
+      pending = false,
+      viaGroup = false,
+      viaGuild = false,
+      viaInspect = false,
     }
     Share.peers[fullName] = peer
   else
     peer.lastSeen = time()
   end
   return peer, fullName
+end
+
+local function MarkSourceFromChannel(peer, channel)
+  if not peer or not channel then
+    return
+  end
+  channel = strupper(channel)
+  if channel == "GUILD" then
+    peer.viaGuild = true
+  elseif channel == "PARTY" or channel == "RAID" or channel == "INSTANCE_CHAT" then
+    peer.viaGroup = true
+  end
+end
+
+local function NamesMatch(fullName, unitName, unitRealm)
+  if not fullName or not unitName then
+    return false
+  end
+  local short, realm = fullName:match("^(.+)%-(.+)$")
+  short = short or fullName
+  if strlower(short) ~= strlower(unitName) then
+    return false
+  end
+  if not unitRealm or unitRealm == "" then
+    return true
+  end
+  return realm and strlower(realm) == strlower(unitRealm)
+end
+
+local function IsNameInGroup(fullName)
+  if not fullName or not IsInGroup() then
+    return false
+  end
+  if IsInRaid() then
+    local n = GetNumGroupMembers() or 0
+    for i = 1, n do
+      local unit = "raid" .. i
+      if UnitExists(unit) and UnitIsPlayer(unit) then
+        local uname, urealm = UnitName(unit)
+        if NamesMatch(fullName, uname, urealm) then
+          return true
+        end
+      end
+    end
+  else
+    local n = GetNumSubgroupMembers and GetNumSubgroupMembers() or GetNumPartyMembers and GetNumPartyMembers() or 0
+    for i = 1, n do
+      local unit = "party" .. i
+      if UnitExists(unit) and UnitIsPlayer(unit) then
+        local uname, urealm = UnitName(unit)
+        if NamesMatch(fullName, uname, urealm) then
+          return true
+        end
+      end
+    end
+  end
+  return false
+end
+
+-- Keep viaGroup in sync with the live party/raid roster.
+local function SyncGroupSources()
+  for _, peer in pairs(Share.peers) do
+    peer.viaGroup = false
+  end
+  if not IsInGroup() then
+    return
+  end
+  local function markUnit(unit)
+    if not UnitExists(unit) or not UnitIsPlayer(unit) then
+      return
+    end
+    local uname, urealm = UnitName(unit)
+    if not uname then
+      return
+    end
+    local key
+    if urealm and urealm ~= "" then
+      key = NormalizeName(uname .. "-" .. urealm)
+    else
+      key = NormalizeName(uname)
+    end
+    local peer = key and Share.peers[key]
+    if peer then
+      peer.viaGroup = true
+    end
+  end
+  if IsInRaid() then
+    local n = GetNumGroupMembers() or 0
+    for i = 1, n do
+      markUnit("raid" .. i)
+    end
+  else
+    local n = GetNumSubgroupMembers and GetNumSubgroupMembers() or GetNumPartyMembers and GetNumPartyMembers() or 0
+    for i = 1, n do
+      markUnit("party" .. i)
+    end
+  end
+end
+
+local function ClassifyPeer(peer, fullName)
+  if not peer then
+    return Share.SOURCE_OTHER
+  end
+  if IsNameInGroup(fullName) or peer.viaGroup then
+    return Share.SOURCE_GROUP
+  end
+  if peer.viaGuild then
+    return Share.SOURCE_GUILD
+  end
+  if peer.viaInspect then
+    return Share.SOURCE_INSPECT
+  end
+  return Share.SOURCE_OTHER
+end
+
+-- Mark that this peer actually answered with a valid protocol message.
+local function ConfirmPeerAddon(peer)
+  if not peer then
+    return
+  end
+  peer.hasAddon = true
+  peer.pending = false
 end
 
 local function NotifyUI()
@@ -253,10 +387,14 @@ end
 -- Inbound handlers
 ---------------------------------------------------------------------------
 
-local function HandleHello(sender, parts)
-  local ver = tonumber(parts[2]) or 0
-  local points = tonumber(parts[3]) or 0
-  local count = tonumber(parts[4]) or 0
+local function HandleHello(sender, parts, channel)
+  -- Require a well-formed HELLO: H|ver|points|count
+  local ver = tonumber(parts[2])
+  local points = tonumber(parts[3])
+  local count = tonumber(parts[4])
+  if ver == nil or points == nil or count == nil then
+    return
+  end
   if ver > PROTOCOL_VER + 5 then
     -- Far-future protocol; still track presence lightly
   end
@@ -264,6 +402,8 @@ local function HandleHello(sender, parts)
   if not peer then
     return
   end
+  ConfirmPeerAddon(peer)
+  MarkSourceFromChannel(peer, channel)
   peer.version = ver
   peer.points = points
   peer.count = count
@@ -286,13 +426,19 @@ local function HandleRequest(sender)
 end
 
 local function HandleSync(sender, parts)
-  local seq = tonumber(parts[2]) or 1
-  local total = tonumber(parts[3]) or 1
+  -- Require a well-formed sync chunk: S|seq|total|id,id,...
+  local seq = tonumber(parts[2])
+  local total = tonumber(parts[3])
+  if not seq or not total or seq < 1 or total < 1 then
+    return
+  end
   local body = parts[4] or ""
   local peer, key = EnsurePeer(sender)
   if not peer then
     return
   end
+
+  ConfirmPeerAddon(peer)
 
   if seq == 1 then
     peer.syncBuf = {}
@@ -324,10 +470,12 @@ local function HandleSync(sender, parts)
     peer.count = n
     peer.points = pts
     NotifyUI()
+  else
+    NotifyUI()
   end
 end
 
-local function HandleNew(sender, parts)
+local function HandleNew(sender, parts, channel)
   local id = tonumber(parts[2])
   if not id then
     return
@@ -336,6 +484,8 @@ local function HandleNew(sender, parts)
   if not peer then
     return
   end
+  ConfirmPeerAddon(peer)
+  MarkSourceFromChannel(peer, channel)
   peer.completed = peer.completed or {}
   if not peer.completed[id] then
     peer.completed[id] = true
@@ -365,13 +515,13 @@ local function OnAddonMessage(prefix, message, channel, sender)
   local parts = { strsplit("|", message) }
   local kind = parts[1]
   if kind == "H" then
-    HandleHello(sender, parts)
+    HandleHello(sender, parts, channel)
   elseif kind == "R" then
     HandleRequest(sender)
   elseif kind == "S" then
     HandleSync(sender, parts)
   elseif kind == "N" then
-    HandleNew(sender, parts)
+    HandleNew(sender, parts, channel)
   end
 end
 
@@ -408,9 +558,21 @@ function Share:GetPeerList()
       count = peer.count or 0,
       syncing = peer.syncing,
       lastSeen = peer.lastSeen,
+      hasAddon = peer.hasAddon and true or false,
+      pending = peer.pending and true or false,
+      source = ClassifyPeer(peer, key),
+      viaGroup = peer.viaGroup and true or false,
+      viaGuild = peer.viaGuild and true or false,
+      viaInspect = peer.viaInspect and true or false,
     }
   end
+  -- Confirmed addon peers first (by points), then pending, then no-addon
   table.sort(list, function(a, b)
+    local ar = (a.hasAddon and 0) or (a.pending and 1) or 2
+    local br = (b.hasAddon and 0) or (b.pending and 1) or 2
+    if ar ~= br then
+      return ar < br
+    end
     if a.points == b.points then
       return (a.name or "") < (b.name or "")
     end
@@ -442,8 +604,39 @@ function Share:RequestPeer(fullName)
   if me and fullName == me then
     return false, "That is you."
   end
-  EnsurePeer(fullName)
+  local peer = EnsurePeer(fullName)
+  if not peer then
+    return false, "No player name."
+  end
+  peer.viaInspect = true
+  -- Inspect targets stay unconfirmed until a valid H/S/N reply arrives.
+  if not peer.hasAddon then
+    peer.pending = true
+    peer.requestedAt = time()
+    local requestedKey = fullName
+    local function finishPending()
+      local p = Share.peers[requestedKey]
+      if p and p.pending and not p.hasAddon then
+        p.pending = false
+        NotifyUI()
+      end
+    end
+    if C_Timer and C_Timer.After then
+      C_Timer.After(INSPECT_TIMEOUT, finishPending)
+    else
+      local delay = 0
+      local waiter = CreateFrame("Frame")
+      waiter:SetScript("OnUpdate", function(self, elapsed)
+        delay = delay + elapsed
+        if delay >= INSPECT_TIMEOUT then
+          self:SetScript("OnUpdate", nil)
+          finishPending()
+        end
+      end)
+    end
+  end
   Enqueue("WHISPER", "R", fullName)
+  NotifyUI()
   return true
 end
 
@@ -512,6 +705,10 @@ function Share:Start()
       local prefix, message, channel, sender = ...
       OnAddonMessage(prefix, message, channel, sender)
     elseif event == "GROUP_ROSTER_UPDATE" or event == "PLAYER_GUILD_UPDATE" then
+      if event == "GROUP_ROSTER_UPDATE" then
+        SyncGroupSources()
+        NotifyUI()
+      end
       SendHello(false)
     elseif event == "PLAYER_ENTERING_WORLD" then
       SendHello(true)

@@ -34,3 +34,9 @@ Sync to the game folder (PowerShell):
 ## Sharing
 
 Completed achievements can be browsed for other players who use the addon (guild, party, raid, or `/la inspect`). Sharing is on by default; turn off with `/la share off`.
+
+Open the **Players** sidebar to browse peers. The list is:
+
+- **Searchable** by name
+- **Filterable** by addon status (All / Addon / Pending / No addon)
+- **Grouped** into Group/Raid, Guild, and Inspected (manual `/la inspect`)

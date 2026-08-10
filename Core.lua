@@ -228,10 +228,17 @@ SlashCmdList["LAUCOBSACHIEVEMENTS"] = function(msg)
           .. tostring(result)
           .. "|r..."
       )
-      if LA.UI and LA.UI.ShowPeer then
-        LA.UI:ShowPeer(result)
-      elseif LA.UI and LA.UI.Show then
-        LA.UI:Show()
+      local shown, err = pcall(function()
+        if LA.UI and LA.UI.ShowPeer then
+          LA.UI:ShowPeer(result)
+        elseif LA.UI and LA.UI.Show then
+          LA.UI:Show()
+        end
+      end)
+      if not shown then
+        DEFAULT_CHAT_FRAME:AddMessage(
+          "|cffff5555Laucob's Achievements|r: UI error while inspecting: " .. tostring(err)
+        )
       end
     else
       DEFAULT_CHAT_FRAME:AddMessage(

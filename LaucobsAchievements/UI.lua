@@ -1084,11 +1084,12 @@ local function BuildCategorySidebar(parent)
     return a.order < b.order
   end)
 
+  local btnW = math.max(120, (parent:GetWidth() or (SIDEBAR_W - 28)) - 4)
   local y = -8
   for _, cat in ipairs(sorted) do
     local btn = CreateFrame("Button", nil, parent)
-    btn:SetSize(SIDEBAR_W - 20, CAT_BTN_H)
-    btn:SetPoint("TOPLEFT", parent, "TOPLEFT", 10, y)
+    btn:SetSize(btnW, CAT_BTN_H)
+    btn:SetPoint("TOPLEFT", parent, "TOPLEFT", 8, y)
 
     local bg = Solid(btn, "BACKGROUND", 0.55, 0.42, 0.12, 0.55)
     bg:SetAllPoints()
@@ -1142,12 +1143,12 @@ local function BuildCategorySidebar(parent)
   y = y - 8
   local rule = Solid(parent, "ARTWORK", 0.55, 0.42, 0.18, 0.55)
   rule:SetHeight(1)
-  rule:SetPoint("TOPLEFT", 12, y + 4)
-  rule:SetPoint("TOPRIGHT", -12, y + 4)
+  rule:SetPoint("TOPLEFT", 10, y + 4)
+  rule:SetPoint("TOPRIGHT", -6, y + 4)
 
   local btn = CreateFrame("Button", nil, parent)
-  btn:SetSize(SIDEBAR_W - 20, CAT_BTN_H)
-  btn:SetPoint("TOPLEFT", parent, "TOPLEFT", 10, y - 8)
+  btn:SetSize(btnW, CAT_BTN_H)
+  btn:SetPoint("TOPLEFT", parent, "TOPLEFT", 8, y - 8)
 
   local bg = Solid(btn, "BACKGROUND", 0.55, 0.42, 0.12, 0.55)
   bg:SetAllPoints()
@@ -1188,6 +1189,9 @@ local function BuildCategorySidebar(parent)
   end)
 
   playersBtn = btn
+
+  -- Content height for the scroll child (Players button bottom + padding)
+  return (-(y - 8 - CAT_BTN_H)) + 16
 end
 
 ---------------------------------------------------------------------------
@@ -1389,10 +1393,40 @@ function UI:Init()
   sideRule:SetPoint("TOPLEFT", 12, -30)
   sideRule:SetPoint("TOPRIGHT", -12, -30)
 
-  local sideContent = CreateFrame("Frame", nil, sidebar)
-  sideContent:SetPoint("TOPLEFT", 0, -36)
-  sideContent:SetPoint("BOTTOMRIGHT", 0, 8)
-  BuildCategorySidebar(sideContent)
+  -- Scrollable category list (fits the longer catalog + Players)
+  local sideScroll = CreateFrame("ScrollFrame", "LaucobsAchievementsCatScroll", sidebar, "UIPanelScrollFrameTemplate")
+  sideScroll:SetPoint("TOPLEFT", 2, -36)
+  sideScroll:SetPoint("BOTTOMRIGHT", -22, 6)
+  f.sideScroll = sideScroll
+  UI.sideScroll = sideScroll
+
+  local sideChild = CreateFrame("Frame", nil, sideScroll)
+  sideChild:SetWidth(SIDEBAR_W - 28)
+  sideScroll:SetScrollChild(sideChild)
+  f.sideChild = sideChild
+  UI.sideChild = sideChild
+
+  local contentH = BuildCategorySidebar(sideChild) or 400
+  sideChild:SetHeight(math.max(contentH, 1))
+
+  sideScroll:EnableMouseWheel(true)
+  sideScroll:SetScript("OnMouseWheel", function(self, delta)
+    local step = CAT_BTN_H + CAT_BTN_GAP
+    local cur = self:GetVerticalScroll() or 0
+    local maxScroll = self:GetVerticalScrollRange() or 0
+    self:SetVerticalScroll(math.max(0, math.min(maxScroll, cur - delta * step)))
+  end)
+
+  sideScroll:SetScript("OnSizeChanged", function(self)
+    local child = self:GetScrollChild()
+    if not child then
+      return
+    end
+    local maxScroll = math.max(0, (child:GetHeight() or 0) - (self:GetHeight() or 0))
+    if (self:GetVerticalScroll() or 0) > maxScroll then
+      self:SetVerticalScroll(maxScroll)
+    end
+  end)
 
   -- Main pane
   local main = CreateFrame("Frame", nil, inset, "BackdropTemplate")

@@ -2,6 +2,8 @@
 
 Retail-style achievement tracking for **World of Warcraft Classic Era / Hardcore**.
 
+**190+ achievements** across 10 categories: General, Quests, Combat, Exploration, Wealth, Professions, Dungeons, PvP, Hardcore, and Feats of Strength.
+
 ## Install (play)
 
 Copy the `LaucobsAchievements` folder into:

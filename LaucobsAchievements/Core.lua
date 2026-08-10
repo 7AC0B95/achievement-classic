@@ -6,17 +6,18 @@
 local addonName, LA = ...
 
 LA.name = addonName
-LA.version = "0.2.0"
+LA.version = "0.3.0"
 
 -- Defaults applied on first load / when keys are missing
 local defaults = {
-  version = 2,
+  version = 3,
   characters = {},
   shareEnabled = true, -- social-graph achievement sharing (opt-out)
   debugEnabled = false,
 }
 
 -- Clear MONEY progress that was stored as current wealth (v1), not looted total.
+-- v3: wipe progress for removed starter achievements so old IDs don't linger.
 local function MigrateDB(db)
   local ver = db.version or 1
   if ver < 2 then
@@ -37,6 +38,29 @@ local function MigrateDB(db)
       end
     end
     db.version = 2
+  end
+  if ver < 3 then
+    -- Achievement catalog was fully replaced in 0.3.0; drop orphaned progress/completion.
+    for _, char in pairs(db.characters or {}) do
+      if type(char.completed) == "table" then
+        for achievementId in pairs(char.completed) do
+          if not (LA.Achievements and LA.Achievements[achievementId]) then
+            char.completed[achievementId] = nil
+          end
+        end
+      end
+      if type(char.progress) == "table" then
+        for achievementId in pairs(char.progress) do
+          if not (LA.Achievements and LA.Achievements[achievementId]) then
+            char.progress[achievementId] = nil
+          end
+        end
+      end
+      char.visitedZones = char.visitedZones or {}
+      char.visitedInstances = char.visitedInstances or {}
+      char.deaths = char.deaths or 0
+    end
+    db.version = 3
   end
 end
 
@@ -59,9 +83,43 @@ function LA:GetCharDB()
     db.characters[key] = {
       completed = {}, -- [achievementId] = { earnedOn = unixTime }
       progress = {},  -- [achievementId] = { [criteriaIndex] = number }
+      visitedZones = {}, -- [zoneNameLower] = true
+      visitedInstances = {}, -- [instanceNameLower] = true
+      deaths = 0,
     }
+  else
+    local char = db.characters[key]
+    char.visitedZones = char.visitedZones or {}
+    char.visitedInstances = char.visitedInstances or {}
+    char.deaths = char.deaths or 0
   end
   return db.characters[key]
+end
+
+--- True when every criteria has reached its target value.
+function LA:AreCriteriaMet(achievementId)
+  local def = self.Achievements and self.Achievements[achievementId]
+  if not def or not def.criteria or #def.criteria == 0 then
+    return false
+  end
+  for i, crit in ipairs(def.criteria) do
+    local target = crit.value or 1
+    if (self:GetProgress(achievementId, i) or 0) < target then
+      return false
+    end
+  end
+  return true
+end
+
+--- Complete only if all criteria are satisfied.
+function LA:TryComplete(achievementId)
+  if self:IsComplete(achievementId) then
+    return false
+  end
+  if not self:AreCriteriaMet(achievementId) then
+    return false
+  end
+  return self:CompleteAchievement(achievementId)
 end
 
 --- Whether an achievement is completed for the current character.
@@ -142,6 +200,17 @@ function LA:CompleteAchievement(achievementId)
 
   if self.UI and self.UI.Refresh then
     self.UI:Refresh()
+  end
+
+  -- Meta achievements ("earn N achievements") need a recount next frame
+  if C_Timer and C_Timer.After then
+    C_Timer.After(0, function()
+      if LA.Tracker and LA.Tracker.Route then
+        LA.Tracker:Route("META")
+      end
+    end)
+  elseif self.Tracker and self.Tracker.Route then
+    self.Tracker:Route("META")
   end
 
   return true

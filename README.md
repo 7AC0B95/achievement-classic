@@ -4,9 +4,9 @@ Retail-style achievement tracking for **World of Warcraft Classic Era / Hardcore
 
 ## Install (play)
 
-Copy this folder into:
+Copy the `LaucobsAchievements` folder into:
 
-`World of Warcraft\_classic_era_\Interface\AddOns\LaucobsAchievements`
+`World of Warcraft\_classic_era_\Interface\AddOns\`
 
 Then `/reload` in-game.
 
@@ -25,7 +25,10 @@ Sync to the game folder (PowerShell):
 | Command | Action |
 |---------|--------|
 | `/la` | Open the achievements panel |
+| `/la debug` | Toggle debug mode |
+| `/la debug on\|off` | Enable/disable debug mode |
 | `/la reset` | Reset this character's progress |
+| `/la reset <id>` | Reset one achievement (requires debug) |
 | `/la share` | Show sharing status |
 | `/la share on\|off` | Enable/disable peer sharing |
 | `/la inspect` | Request achievements from your current target |

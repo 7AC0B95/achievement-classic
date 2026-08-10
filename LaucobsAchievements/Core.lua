@@ -10,10 +10,35 @@ LA.version = "0.2.0"
 
 -- Defaults applied on first load / when keys are missing
 local defaults = {
-  version = 1,
+  version = 2,
   characters = {},
   shareEnabled = true, -- social-graph achievement sharing (opt-out)
+  debugEnabled = false,
 }
+
+-- Clear MONEY progress that was stored as current wealth (v1), not looted total.
+local function MigrateDB(db)
+  local ver = db.version or 1
+  if ver < 2 then
+    for _, char in pairs(db.characters or {}) do
+      if type(char.progress) == "table" and type(char.completed) == "table" then
+        for achievementId, prog in pairs(char.progress) do
+          if not char.completed[achievementId] then
+            local def = LA.Achievements and LA.Achievements[achievementId]
+            if def and def.criteria then
+              for i, crit in ipairs(def.criteria) do
+                if crit.type == "MONEY" then
+                  prog[i] = nil
+                end
+              end
+            end
+          end
+        end
+      end
+    end
+    db.version = 2
+  end
+end
 
 local function CharKey()
   local name, realm = UnitName("player"), GetRealmName()
@@ -122,6 +147,58 @@ function LA:CompleteAchievement(achievementId)
   return true
 end
 
+--- Clear completion and progress for one achievement (debug). Returns ok, detail.
+function LA:ResetAchievement(achievementId)
+  achievementId = tonumber(achievementId)
+  if not achievementId then
+    return false, "invalid id"
+  end
+  local def = self.Achievements and self.Achievements[achievementId]
+  if not def then
+    return false, "unknown achievement " .. tostring(achievementId)
+  end
+  local char = self:GetCharDB()
+  if not char then
+    return false, "no character data"
+  end
+
+  char.completed[achievementId] = nil
+  char.progress[achievementId] = nil
+
+  if self.Tracker and self.Tracker.ClearAchievementState then
+    self.Tracker:ClearAchievementState(achievementId)
+  end
+
+  if self.UI and self.UI.Refresh then
+    self.UI:Refresh()
+  end
+
+  return true, def
+end
+
+function LA:IsDebug()
+  return self.db and self.db.debugEnabled == true
+end
+
+function LA:SetDebug(enabled)
+  if not self.db then
+    return false
+  end
+  self.db.debugEnabled = enabled and true or false
+  if self.UI and self.UI.Refresh then
+    self.UI:Refresh()
+  end
+  return self.db.debugEnabled
+end
+
+--- Chat print only when debug mode is on.
+function LA:Debug(msg)
+  if not self:IsDebug() then
+    return
+  end
+  DEFAULT_CHAT_FRAME:AddMessage("|cff888888[LA debug]|r " .. tostring(msg))
+end
+
 local eventFrame = CreateFrame("Frame")
 eventFrame:RegisterEvent("ADDON_LOADED")
 eventFrame:RegisterEvent("PLAYER_LOGIN")
@@ -146,6 +223,11 @@ eventFrame:SetScript("OnEvent", function(_, event, arg1)
     if LaucobsAchievementsDB.shareEnabled == nil then
       LaucobsAchievementsDB.shareEnabled = true
     end
+    if LaucobsAchievementsDB.debugEnabled == nil then
+      LaucobsAchievementsDB.debugEnabled = false
+    end
+
+    MigrateDB(LaucobsAchievementsDB)
 
     LA.db = LaucobsAchievementsDB
     LA.loaded = true
@@ -180,15 +262,80 @@ SlashCmdList["LAUCOBSACHIEVEMENTS"] = function(msg)
   cmd = (cmd or ""):lower()
   rest = rest or ""
 
+  if cmd == "debug" then
+    local arg = rest:lower():match("^%s*(.-)%s*$") or ""
+    if arg == "on" or arg == "1" or arg == "enable" then
+      LA:SetDebug(true)
+      DEFAULT_CHAT_FRAME:AddMessage(
+        "|cffffd100Laucob's Achievements|r: debug |cff00ff00on|r. "
+          .. "IDs shown in the panel. |cff00ff00/la reset <id>|r resets one achievement."
+      )
+    elseif arg == "off" or arg == "0" or arg == "disable" then
+      LA:SetDebug(false)
+      DEFAULT_CHAT_FRAME:AddMessage("|cffffd100Laucob's Achievements|r: debug |cffff5555off|r.")
+    elseif arg == "" then
+      local on = LA:IsDebug()
+      LA:SetDebug(not on)
+      on = LA:IsDebug()
+      DEFAULT_CHAT_FRAME:AddMessage(
+        "|cffffd100Laucob's Achievements|r: debug "
+          .. (on and "|cff00ff00on|r" or "|cffff5555off|r")
+          .. (on and ". |cff00ff00/la reset <id>|r resets one achievement." or ".")
+      )
+    else
+      DEFAULT_CHAT_FRAME:AddMessage(
+        "|cffffd100Laucob's Achievements|r: usage |cff00ff00/la debug|r, |cff00ff00/la debug on|r, or |cff00ff00/la debug off|r"
+      )
+    end
+    return
+  end
+
   if cmd == "reset" then
     local char = LA:GetCharDB()
-    if char then
-      wipe(char.completed)
-      wipe(char.progress)
-      DEFAULT_CHAT_FRAME:AddMessage("|cffffd100Laucob's Achievements|r: progress reset for this character.")
-      if LA.UI and LA.UI.Refresh then
-        LA.UI:Refresh()
+    if not char then
+      return
+    end
+
+    local arg = rest:match("^%s*(.-)%s*$") or ""
+    if arg ~= "" then
+      if not LA:IsDebug() then
+        DEFAULT_CHAT_FRAME:AddMessage(
+          "|cffffd100Laucob's Achievements|r: enable debug first with |cff00ff00/la debug on|r"
+        )
+        return
       end
+      local id = tonumber(arg)
+      if not id then
+        DEFAULT_CHAT_FRAME:AddMessage(
+          "|cffffd100Laucob's Achievements|r: usage |cff00ff00/la reset|r or |cff00ff00/la reset <id>|r"
+        )
+        return
+      end
+      local ok, detail = LA:ResetAchievement(id)
+      if ok then
+        DEFAULT_CHAT_FRAME:AddMessage(
+          "|cffffd100Laucob's Achievements|r: reset |cff00ff00"
+            .. detail.title
+            .. "|r ("
+            .. id
+            .. ")."
+        )
+      else
+        DEFAULT_CHAT_FRAME:AddMessage(
+          "|cffffd100Laucob's Achievements|r: " .. tostring(detail)
+        )
+      end
+      return
+    end
+
+    wipe(char.completed)
+    wipe(char.progress)
+    if LA.Tracker and LA.Tracker.ClearAchievementState then
+      LA.Tracker:ClearAchievementState()
+    end
+    DEFAULT_CHAT_FRAME:AddMessage("|cffffd100Laucob's Achievements|r: progress reset for this character.")
+    if LA.UI and LA.UI.Refresh then
+      LA.UI:Refresh()
     end
     return
   end

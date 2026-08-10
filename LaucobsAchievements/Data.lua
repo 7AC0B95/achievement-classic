@@ -17,7 +17,7 @@ LA.Categories = {
 --[[
   criteria types used by Tracker.lua:
     LEVEL   - player reaches criteria.value
-    MONEY   - player copper >= criteria.value (10000 = 1g)
+    MONEY   - accumulate looted copper to criteria.value (10000 = 1g)
     HEALTH  - survive with healthPct <= criteria.threshold (percent)
     KILLS   - accumulate kills matching criteria.match (optional substring)
     QUESTS  - accumulate quest turn-ins to criteria.value

@@ -545,7 +545,9 @@ local function PopulateAchievements(categoryId)
       card.icon:SetDesaturated(not complete)
     end
 
-    card.title:SetText(def.title or "")
+    card.title:SetText(
+      (LA:IsDebug() and ("[" .. def.id .. "] ") or "") .. (def.title or "")
+    )
     card.desc:SetText(def.description or "")
 
     if complete then

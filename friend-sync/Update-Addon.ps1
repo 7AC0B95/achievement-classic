@@ -82,32 +82,72 @@ function Save-Config([string]$AddOnsPath) {
   @{ addOnsPath = $AddOnsPath } | ConvertTo-Json | Set-Content -LiteralPath $ConfigPath -Encoding UTF8
 }
 
+function Test-PathExists([string]$Path) {
+  # Prefer .NET checks: PowerShell Join-Path/Test-Path throw on missing drives when ErrorAction is Stop.
+  try {
+    if ([string]::IsNullOrWhiteSpace($Path)) { return $false }
+    return [System.IO.Directory]::Exists($Path) -or [System.IO.File]::Exists($Path)
+  } catch {
+    return $false
+  }
+}
+
+function Join-FsPath {
+  param([Parameter(Mandatory = $true)][string[]]$Parts)
+  # Path.Combine does not validate that the drive exists.
+  return [System.IO.Path]::Combine($Parts)
+}
+
+function Get-ClassicEraAddOnsCandidate([string]$WowRoot) {
+  $candidate = Join-FsPath @($WowRoot, "_classic_era_", "Interface", "AddOns")
+  if (Test-PathExists $candidate) {
+    return $candidate
+  }
+  return $null
+}
+
 function Find-ClassicEraAddOns {
   $roots = @(
-    "${env:ProgramFiles(x86)}\World of Warcraft",
-    "$env:ProgramFiles\World of Warcraft",
-    "$env:USERPROFILE\World of Warcraft",
+    (Join-FsPath @("${env:ProgramFiles(x86)}", "World of Warcraft")),
+    (Join-FsPath @("$env:ProgramFiles", "World of Warcraft")),
+    (Join-FsPath @("$env:USERPROFILE", "World of Warcraft")),
     "D:\World of Warcraft",
     "E:\World of Warcraft",
-    "F:\World of Warcraft"
+    "F:\World of Warcraft",
+    "W:\World of Warcraft",
+    "W:\Games\World of Warcraft"
   )
 
   foreach ($root in $roots) {
-    $candidate = Join-Path $root "_classic_era_\Interface\AddOns"
-    if (Test-Path -LiteralPath $candidate) {
-      return $candidate
-    }
+    $found = Get-ClassicEraAddOnsCandidate $root
+    if ($found) { return $found }
   }
 
-  foreach ($drive in @("C:", "D:", "E:")) {
-    if (-not (Test-Path "$drive\")) { continue }
-    $wow = Get-ChildItem -Path "$drive\" -Filter "World of Warcraft" -Directory -ErrorAction SilentlyContinue |
-      Select-Object -First 3
-    foreach ($dir in $wow) {
-      $candidate = Join-Path $dir.FullName "_classic_era_\Interface\AddOns"
-      if (Test-Path -LiteralPath $candidate) {
-        return $candidate
+  # Scan every ready filesystem drive; WoW is often under Games\ or similar (not drive root).
+  $drives = Get-PSDrive -PSProvider FileSystem -ErrorAction SilentlyContinue |
+    Where-Object { Test-PathExists $_.Root }
+
+  foreach ($drive in $drives) {
+    $driveRoot = $drive.Root
+    $shallow = @(
+      (Join-FsPath @($driveRoot, "World of Warcraft")),
+      (Join-FsPath @($driveRoot, "Games", "World of Warcraft")),
+      (Join-FsPath @($driveRoot, "Program Files (x86)", "World of Warcraft")),
+      (Join-FsPath @($driveRoot, "Program Files", "World of Warcraft"))
+    )
+    foreach ($root in $shallow) {
+      $found = Get-ClassicEraAddOnsCandidate $root
+      if ($found) { return $found }
+    }
+
+    try {
+      $wowDirs = Get-ChildItem -Path $driveRoot -Filter "World of Warcraft" -Directory -Recurse -Depth 3 -ErrorAction SilentlyContinue
+      foreach ($dir in $wowDirs) {
+        $found = Get-ClassicEraAddOnsCandidate $dir.FullName
+        if ($found) { return $found }
       }
+    } catch {
+      # Skip inaccessible drives / folders.
     }
   }
 
@@ -116,7 +156,7 @@ function Find-ClassicEraAddOns {
 
 function Resolve-AddOnsPath {
   $config = Get-Config
-  if ($config -and $config.addOnsPath -and (Test-Path -LiteralPath $config.addOnsPath)) {
+  if ($config -and $config.addOnsPath -and (Test-PathExists $config.addOnsPath)) {
     return $config.addOnsPath
   }
 
@@ -135,7 +175,7 @@ function Resolve-AddOnsPath {
   if (-not $manual) {
     throw "No AddOns path provided."
   }
-  if (-not (Test-Path -LiteralPath $manual)) {
+  if (-not (Test-PathExists $manual)) {
     throw "Path does not exist: $manual"
   }
 
@@ -302,7 +342,10 @@ function Sync-Addon {
     [Parameter(Mandatory = $true)]
     [string]$AddOnsPath,
 
-    [switch]$VerboseStatus
+    [switch]$VerboseStatus,
+
+    # Always download tip files from GitHub (ignore last-sync marker short-circuit).
+    [switch]$Force
   )
 
   $marker = Get-SyncMarker
@@ -312,7 +355,7 @@ function Sync-Addon {
   $sha = Get-RemoteHeadSha
   $shortSha = $sha.Substring(0, [Math]::Min(7, $sha.Length))
 
-  if ($lastSha -and ($lastSha -eq $sha) -and (Test-Path -LiteralPath $destAddon)) {
+  if (-not $Force -and $lastSha -and ($lastSha -eq $sha) -and (Test-Path -LiteralPath $destAddon)) {
     if ($VerboseStatus) {
       Write-Ok "Already up to date ($shortSha)."
     }
@@ -324,7 +367,7 @@ function Sync-Addon {
 
   if ($result -eq "Skipped") {
     if ($VerboseStatus) {
-      Write-Ok "Commit $shortSha has no addon file changes."
+      Write-Ok "Already on latest ($shortSha)."
     }
     return "UpToDate"
   }
@@ -368,9 +411,11 @@ try {
     throw [System.UnauthorizedAccessException] "WRITE_DENIED_ADDONS"
   }
 
+  # Always pull tip from GitHub on open so this PC starts from the newest files.
+  Write-Step "Pulling latest addon from GitHub..."
+  [void](Sync-Addon -AddOnsPath $addOnsPath -VerboseStatus -Force)
+
   if ($Once) {
-    Write-Step "Checking GitHub for updates..."
-    [void](Sync-Addon -AddOnsPath $addOnsPath -VerboseStatus)
     if (-not $Quiet) {
       Write-Host ""
       Read-Host "Done. Press Enter to close"
@@ -386,6 +431,7 @@ try {
   $watchFrame = 0
 
   while ($true) {
+    Wait-WithAnimation -Seconds $IntervalSeconds
     Show-WatchStatus -Frame $watchFrame
     $watchFrame++
     try {
@@ -394,7 +440,6 @@ try {
     catch {
       Write-WarnLine (Format-CheckError $_.Exception.Message)
     }
-    Wait-WithAnimation -Seconds $IntervalSeconds
   }
 }
 catch [System.UnauthorizedAccessException] {

@@ -4,10 +4,9 @@
   Sync Laucob's Achievements from GitHub into your WoW Classic Era AddOns folder.
 
 .DESCRIPTION
-  No Git install required. Polls GitHub with a tiny conditional request (ETag).
-  Unchanged checks return HTTP 304 and do not count against the API rate limit.
-  When the commit changes, only files inside LaucobsAchievements/ are downloaded
-  and written into the WoW AddOns folder (friend-sync and other repo files are ignored).
+  No Git install required. Polls the public commits Atom feed (not the rate-limited
+  GitHub REST API). When the tip commit changes, downloads only files listed in
+  LaucobsAchievements/LaucobsAchievements.toc from raw.githubusercontent.com.
 
   Default mode watches continuously for active development.
 #>
@@ -30,6 +29,8 @@ $RepoOwner = "7AC0B95"
 $RepoName = "achievement-classic"
 $Branch = "main"
 $AddonFolderName = "LaucobsAchievements"
+$TocFileName = "LaucobsAchievements.toc"
+$UserAgent = "LaucobsAchievements-Updater"
 
 $StateDir = Join-Path $env:LOCALAPPDATA "LaucobsAchievements"
 $ConfigPath = Join-Path $StateDir "config.json"
@@ -151,13 +152,12 @@ function Get-SyncMarker {
   }
 }
 
-function Save-SyncMarker([string]$Sha, [string]$ETag) {
+function Save-SyncMarker([string]$Sha) {
   if (-not (Test-Path $StateDir)) {
     New-Item -ItemType Directory -Force -Path $StateDir | Out-Null
   }
   @{
     sha      = $Sha
-    etag     = $ETag
     syncedAt = (Get-Date).ToString("o")
     repo     = "https://github.com/$RepoOwner/$RepoName"
     branch   = $Branch
@@ -175,87 +175,55 @@ function Test-CanWrite([string]$Directory) {
   }
 }
 
-function Get-HttpStatusCode($Exception) {
-  $response = $Exception.Exception.Response
-  if (-not $response) { return $null }
+function Get-RawAddonUrl([string]$Sha, [string]$FileName) {
+  return "https://raw.githubusercontent.com/$RepoOwner/$RepoName/$Sha/$AddonFolderName/$FileName"
+}
+
+# Poll the public Atom feed - avoids api.github.com's 60 req/hour unauthenticated limit.
+function Get-RemoteHeadSha {
+  $url = "https://github.com/$RepoOwner/$RepoName/commits/$Branch.atom"
+  $response = Invoke-WebRequest -Uri $url -Headers @{ "User-Agent" = $UserAgent } -UseBasicParsing -TimeoutSec 30
+  $match = [regex]::Match($response.Content, "Grit::Commit/([0-9a-f]{40})")
+  if (-not $match.Success) {
+    throw "Could not parse latest commit from GitHub feed."
+  }
+  return $match.Groups[1].Value
+}
+
+function Get-RemoteText([string]$Url) {
+  $response = Invoke-WebRequest -Uri $Url -Headers @{ "User-Agent" = $UserAgent } -UseBasicParsing -TimeoutSec 60
+  return [string]$response.Content
+}
+
+function Get-AddonFileNamesFromToc([string]$TocText) {
+  $names = New-Object System.Collections.Generic.List[string]
+  $names.Add($TocFileName) | Out-Null
+
+  foreach ($line in ($TocText -split "`r?`n")) {
+    $trimmed = $line.Trim()
+    if (-not $trimmed) { continue }
+    if ($trimmed.StartsWith("#")) { continue }
+    # Only plain addon files from this folder (ignore paths / nested oddities).
+    if ($trimmed -match '[\\/]') { continue }
+    if ($trimmed -notmatch '\.(lua|xml|toc|blp|tga|ogg|mp3)$') { continue }
+    if (-not $names.Contains($trimmed)) {
+      $names.Add($trimmed) | Out-Null
+    }
+  }
+
+  return ,$names.ToArray()
+}
+
+function Get-ContentFingerprint([string]$Text) {
+  $sha = [System.Security.Cryptography.SHA256]::Create()
   try {
-    return [int]$response.StatusCode
-  } catch {
-    return $null
+    $bytes = [System.Text.Encoding]::UTF8.GetBytes($Text)
+    $hash = $sha.ComputeHash($bytes)
+    return ([BitConverter]::ToString($hash) -replace "-", "").ToLowerInvariant()
   }
-}
-
-# Lightweight poll: conditional GET against the commits API.
-# HTTP 304 (Not Modified) does not count against GitHub's rate limit.
-function Get-RemoteHead {
-  param([string]$ETag)
-
-  $url = "https://api.github.com/repos/$RepoOwner/$RepoName/commits/$Branch"
-  $headers = @{
-    "User-Agent" = "LaucobsAchievements-Updater"
-    "Accept"     = "application/vnd.github+json"
+  finally {
+    $sha.Dispose()
   }
-  if ($ETag) {
-    $headers["If-None-Match"] = $ETag
-  }
-
-  try {
-    $response = Invoke-WebRequest -Uri $url -Headers $headers -UseBasicParsing -TimeoutSec 30
-    $json = $response.Content | ConvertFrom-Json
-    $newEtag = $response.Headers["ETag"]
-    if ($newEtag -is [array]) { $newEtag = $newEtag[0] }
-    return [pscustomobject]@{
-      Changed = $true
-      Sha     = [string]$json.sha
-      ETag    = [string]$newEtag
-    }
-  }
-  catch {
-    $code = Get-HttpStatusCode $_
-    if ($code -eq 304) {
-      return [pscustomobject]@{
-        Changed = $false
-        Sha     = $null
-        ETag    = $ETag
-      }
-    }
-    throw
-  }
-}
-
-function Test-CommitTouchesAddon([string]$Sha) {
-  $url = "https://api.github.com/repos/$RepoOwner/$RepoName/commits/$Sha"
-  $headers = @{
-    "User-Agent" = "LaucobsAchievements-Updater"
-    "Accept"     = "application/vnd.github+json"
-  }
-
-  $commit = Invoke-RestMethod -Uri $url -Headers $headers -TimeoutSec 30
-  $prefix = "$AddonFolderName/"
-  foreach ($file in @($commit.files)) {
-    if ($file.filename -and ($file.filename.StartsWith($prefix, [StringComparison]::OrdinalIgnoreCase))) {
-      return $true
-    }
-  }
-  return $false
-}
-
-function Get-AddonRemoteFiles([string]$Sha) {
-  $url = "https://api.github.com/repos/$RepoOwner/$RepoName/contents/$AddonFolderName`?ref=$Sha"
-  $headers = @{
-    "User-Agent" = "LaucobsAchievements-Updater"
-    "Accept"     = "application/vnd.github+json"
-  }
-
-  $items = Invoke-RestMethod -Uri $url -Headers $headers -TimeoutSec 30
-  # Single-file folders come back as one object, not an array.
-  $files = @($items | Where-Object { $_.type -eq "file" -and $_.download_url })
-
-  if ($files.Count -eq 0) {
-    throw "No addon files found in '$AddonFolderName' at $Sha."
-  }
-
-  return $files
 }
 
 function Install-AddonFiles {
@@ -274,21 +242,50 @@ function Install-AddonFiles {
     New-Item -ItemType Directory -Force -Path $destAddon | Out-Null
   }
 
-  Write-Step "Fetching addon file list ($shortSha)..."
-  $remoteFiles = Get-AddonRemoteFiles -Sha $Sha
+  Write-Step "Fetching $TocFileName ($shortSha)..."
+  $tocText = Get-RemoteText (Get-RawAddonUrl -Sha $Sha -FileName $TocFileName)
+  $fileNames = Get-AddonFileNamesFromToc -TocText $tocText
 
-  Write-Step "Updating $($remoteFiles.Count) file(s) in $destAddon"
-  $keep = [System.Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
+  $pending = @()
+  $anyChanged = $false
 
-  foreach ($file in $remoteFiles) {
-    $name = [string]$file.name
-    [void]$keep.Add($name)
+  foreach ($name in $fileNames) {
+    if ($name -eq $TocFileName) {
+      $text = $tocText
+    } else {
+      $text = Get-RemoteText (Get-RawAddonUrl -Sha $Sha -FileName $name)
+    }
+
     $dest = Join-Path $destAddon $name
-    Write-Host ("[{0}]   {1}" -f (Get-Date -Format "HH:mm:ss"), $name) -ForegroundColor DarkGray
-    Invoke-WebRequest -Uri $file.download_url -OutFile $dest -UseBasicParsing -TimeoutSec 60
+    $remoteFp = Get-ContentFingerprint $text
+    $localFp = $null
+    if (Test-Path -LiteralPath $dest) {
+      $localFp = Get-ContentFingerprint ([System.IO.File]::ReadAllText($dest))
+    }
+
+    if ($localFp -ne $remoteFp) {
+      $anyChanged = $true
+    }
+
+    $pending += [pscustomobject]@{ Name = $name; Text = $text; Dest = $dest }
   }
 
-  # Drop stale files in the addon folder only (never touches friend-sync / repo extras).
+  if (-not $anyChanged) {
+    # Tip commit moved (e.g. friend-sync only) but addon files are identical.
+    return "Skipped"
+  }
+
+  Write-Step "Updating addon files in $destAddon"
+  $keep = [System.Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
+
+  foreach ($item in $pending) {
+    [void]$keep.Add($item.Name)
+    Write-Host ("[{0}]   {1}" -f (Get-Date -Format "HH:mm:ss"), $item.Name) -ForegroundColor DarkGray
+    # UTF-8 without BOM - matches typical Lua/TOC checkout.
+    $utf8 = New-Object System.Text.UTF8Encoding $false
+    [System.IO.File]::WriteAllText($item.Dest, $item.Text, $utf8)
+  }
+
   Get-ChildItem -LiteralPath $destAddon -File -ErrorAction SilentlyContinue | ForEach-Object {
     if (-not $keep.Contains($_.Name)) {
       Write-Host ("[{0}]   removing stale {1}" -f (Get-Date -Format "HH:mm:ss"), $_.Name) -ForegroundColor DarkYellow
@@ -297,6 +294,7 @@ function Install-AddonFiles {
   }
 
   Write-Ok "Updated to $shortSha. In-game: /reload"
+  return "Updated"
 }
 
 function Sync-Addon {
@@ -308,43 +306,29 @@ function Sync-Addon {
   )
 
   $marker = Get-SyncMarker
-  $etag = if ($marker -and $marker.etag) { [string]$marker.etag } else { $null }
   $lastSha = if ($marker -and $marker.sha) { [string]$marker.sha } else { $null }
   $destAddon = Join-Path $AddOnsPath $AddonFolderName
 
-  $remote = Get-RemoteHead -ETag $etag
-
-  if (-not $remote.Changed) {
-    if ($VerboseStatus) {
-      $short = if ($lastSha) { $lastSha.Substring(0, [Math]::Min(7, $lastSha.Length)) } else { "cached" }
-      Write-Ok "Already up to date ($short)."
-    }
-    return "UpToDate"
-  }
-
-  $sha = $remote.Sha
+  $sha = Get-RemoteHeadSha
   $shortSha = $sha.Substring(0, [Math]::Min(7, $sha.Length))
 
-  # Same commit already installed - just refresh the ETag cache.
   if ($lastSha -and ($lastSha -eq $sha) -and (Test-Path -LiteralPath $destAddon)) {
-    Save-SyncMarker -Sha $sha -ETag $remote.ETag
     if ($VerboseStatus) {
       Write-Ok "Already up to date ($shortSha)."
     }
     return "UpToDate"
   }
 
-  # New commit, but only non-addon paths changed (e.g. friend-sync) - advance marker, skip download.
-  if (-not (Test-CommitTouchesAddon -Sha $sha)) {
-    Save-SyncMarker -Sha $sha -ETag $remote.ETag
+  $result = Install-AddonFiles -AddOnsPath $AddOnsPath -Sha $sha
+  Save-SyncMarker -Sha $sha
+
+  if ($result -eq "Skipped") {
     if ($VerboseStatus) {
       Write-Ok "Commit $shortSha has no addon file changes."
     }
     return "UpToDate"
   }
 
-  Install-AddonFiles -AddOnsPath $AddOnsPath -Sha $sha
-  Save-SyncMarker -Sha $sha -ETag $remote.ETag
   return "Updated"
 }
 
@@ -363,6 +347,13 @@ function Show-WriteDeniedError {
   Write-Host "ERROR: Cannot write to the AddOns folder." -ForegroundColor Red
   Write-Host "Run as administrator, or move WoW out of Program Files." -ForegroundColor Yellow
   Write-Host ""
+}
+
+function Format-CheckError([string]$Message) {
+  if ($Message -match '403|rate limit|Forbidden') {
+    return "GitHub temporarily blocked the request (rate limit). Waiting, then retrying..."
+  }
+  return "Check failed: $Message - retrying in $IntervalSeconds s"
 }
 
 try {
@@ -401,7 +392,7 @@ try {
       [void](Sync-Addon -AddOnsPath $addOnsPath)
     }
     catch {
-      Write-WarnLine "Check failed: $($_.Exception.Message) - retrying in $IntervalSeconds s"
+      Write-WarnLine (Format-CheckError $_.Exception.Message)
     }
     Wait-WithAnimation -Seconds $IntervalSeconds
   }

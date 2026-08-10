@@ -30,6 +30,6 @@ powershell -ExecutionPolicy Bypass -File ".\Install-AutoUpdate.ps1" -Uninstall
 ## Notes
 
 - Needs internet access to GitHub.
-- Each poll is a tiny conditional API request; when you push, only files under `LaucobsAchievements/` are fetched and replaced in AddOns (not `friend-sync` or other repo files).
+- Each poll hits GitHub's public commits feed (not the rate-limited REST API). Addon files are pulled from `raw.githubusercontent.com` only when the tip commit changes.
 - If WoW is under Program Files and Windows blocks writes, run as Administrator once, or install WoW somewhere writable.
 - Saved path / last sync: `%LOCALAPPDATA%\LaucobsAchievements\`

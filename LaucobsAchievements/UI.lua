@@ -202,15 +202,9 @@ local function AcquireCard(parent, index)
   if cardPool[index] then
     local existing = cardPool[index]
     -- Hot-upgrade pooled cards created before compare UI existed
-    if not existing.youCheck then
-      local youCheck = existing:CreateTexture(nil, "OVERLAY")
-      youCheck:SetDrawLayer("OVERLAY", 7)
-      youCheck:SetSize(18, 18)
-      youCheck:SetPoint("TOPRIGHT", existing.icon, "TOPRIGHT", 5, 5)
-      youCheck:SetTexture("Interface\\RaidFrame\\ReadyCheck-Ready")
-      youCheck:SetVertexColor(0.45, 0.85, 1.0)
-      youCheck:Hide()
-      existing.youCheck = youCheck
+    if existing.youCheck then
+      existing.youCheck:Hide()
+      existing.youCheck = nil
     end
     if not existing.compareLabel then
       local compareLabel = existing:CreateFontString(nil, "OVERLAY")
@@ -269,16 +263,6 @@ local function AcquireCard(parent, index)
   check:SetTexture("Interface\\RaidFrame\\ReadyCheck-Ready")
   check:Hide()
   card.check = check
-
-  -- Your completion mark when comparing (top-right of icon)
-  local youCheck = card:CreateTexture(nil, "OVERLAY")
-  youCheck:SetDrawLayer("OVERLAY", 7)
-  youCheck:SetSize(18, 18)
-  youCheck:SetPoint("TOPRIGHT", icon, "TOPRIGHT", 5, 5)
-  youCheck:SetTexture("Interface\\RaidFrame\\ReadyCheck-Ready")
-  youCheck:SetVertexColor(0.45, 0.85, 1.0)
-  youCheck:Hide()
-  card.youCheck = youCheck
 
   -- Compare legend (Them / You) — avoid name "compare" (easy to confuse with logic)
   local compareLabel = card:CreateFontString(nil, "OVERLAY")
@@ -388,14 +372,6 @@ local function ApplyCompareChrome(card, achievementId)
   local peerDone = IsShownComplete(achievementId) and true or false
   local selfDone = LA:IsComplete(achievementId) and true or false
 
-  if card.youCheck then
-    if selfDone then
-      card.youCheck:Show()
-    else
-      card.youCheck:Hide()
-    end
-  end
-
   local label = card.compareLabel or card.compare
   if label then
     local themMark = peerDone and "|cff3dbe3dThem|r" or "|cff777777Them|r"
@@ -424,9 +400,6 @@ local function ApplyCompareChrome(card, achievementId)
 end
 
 local function ClearCompareChrome(card)
-  if card.youCheck then
-    card.youCheck:Hide()
-  end
   local label = card.compareLabel or card.compare
   if label then
     label:Hide()

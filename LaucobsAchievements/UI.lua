@@ -13,7 +13,7 @@ LA.UI = UI
 local PANEL_W, PANEL_H = 900, 640
 local SIDEBAR_W = 190
 local HEADER_H = 58
-local CARD_H = 104
+local CARD_H = 108
 local CARD_GAP = 12
 local ICON_SIZE = 62
 local CARD_PAD = 18
@@ -106,7 +106,9 @@ local function UpdateHeaderContext()
     if viewingPeer then
       local themPts = GetShownPoints()
       local youPts = LA:GetEarnedPoints() or 0
-      f.pointsLabel:SetText("Them " .. themPts .. " / You " .. youPts)
+      f.pointsLabel:SetText(
+        "|cff8cd463Them " .. themPts .. "|r  ·  |cff73c8faYou " .. youPts .. "|r"
+      )
     else
       f.pointsLabel:SetText(GetShownPoints() .. " points")
     end
@@ -116,7 +118,7 @@ local function UpdateHeaderContext()
       youBtn:Show()
       local short = viewingPeer:match("^(.+)%-") or viewingPeer
       if f.viewLabel then
-        f.viewLabel:SetText("Comparing: " .. short)
+        f.viewLabel:SetText("vs  " .. short)
         f.viewLabel:Show()
       end
     else
@@ -145,6 +147,10 @@ local C = {
   cardTodo   = { 0.09, 0.08, 0.06, 0.92 },
   borderGold = { 0.72, 0.58, 0.22, 1 },
   borderDim  = { 0.40, 0.34, 0.22, 1 },
+  -- Compare palette (them = leaf gold-green, you = cool steel)
+  cmpThem    = { 0.55, 0.82, 0.38 },
+  cmpYou     = { 0.45, 0.78, 0.98 },
+  cmpShared  = { 0.92, 0.78, 0.32 },
 }
 
 local function SetFS(fs, size, flags)
@@ -194,26 +200,129 @@ local function Solid(parent, layer, r, g, b, a)
   return t
 end
 
+local function SetSolidColor(tex, r, g, b, a)
+  if not tex then
+    return
+  end
+  if tex.SetColorTexture then
+    tex:SetColorTexture(r, g, b, a or 1)
+  else
+    tex:SetVertexColor(r, g, b, a or 1)
+  end
+end
+
 ---------------------------------------------------------------------------
 -- Achievement cards
 ---------------------------------------------------------------------------
 
+local function CreateComparePill(parent, caption)
+  local pill = CreateFrame("Frame", nil, parent, "BackdropTemplate")
+  pill:SetSize(78, 24)
+  pill:SetBackdrop({
+    bgFile   = "Interface\\Buttons\\WHITE8X8",
+    edgeFile = "Interface\\Buttons\\WHITE8X8",
+    edgeSize = 1,
+  })
+  pill:SetBackdropColor(0.06, 0.05, 0.04, 0.92)
+  pill:SetBackdropBorderColor(0.32, 0.28, 0.20, 0.85)
+
+  local glow = Solid(pill, "BACKGROUND", 1, 1, 1, 0)
+  glow:SetPoint("TOPLEFT", 1, -1)
+  glow:SetPoint("BOTTOMRIGHT", -1, 1)
+  pill.glow = glow
+
+  local dot = Solid(pill, "OVERLAY", 0.35, 0.32, 0.26, 1)
+  dot:SetSize(7, 7)
+  dot:SetPoint("LEFT", 8, 0)
+  pill.dot = dot
+
+  local label = pill:CreateFontString(nil, "OVERLAY")
+  SetFS(label, 11)
+  label:SetJustifyH("LEFT")
+  label:SetPoint("LEFT", dot, "RIGHT", 6, 0)
+  label:SetPoint("RIGHT", -8, 0)
+  label:SetText(caption)
+  label:SetTextColor(0.50, 0.46, 0.38, 1)
+  pill.label = label
+
+  return pill
+end
+
+local function StyleComparePill(pill, done, tone)
+  if not pill then
+    return
+  end
+  local active = done and true or false
+  if active and tone == "them" then
+    pill:SetBackdropColor(0.14, 0.20, 0.09, 0.96)
+    pill:SetBackdropBorderColor(0.55, 0.82, 0.38, 1)
+    SetSolidColor(pill.glow, 0.45, 0.75, 0.28, 0.14)
+    SetSolidColor(pill.dot, 0.55, 0.88, 0.40, 1)
+    pill.label:SetTextColor(0.86, 0.96, 0.72, 1)
+  elseif active and tone == "you" then
+    pill:SetBackdropColor(0.08, 0.14, 0.22, 0.96)
+    pill:SetBackdropBorderColor(0.45, 0.78, 0.98, 1)
+    SetSolidColor(pill.glow, 0.35, 0.65, 0.90, 0.14)
+    SetSolidColor(pill.dot, 0.50, 0.84, 1.00, 1)
+    pill.label:SetTextColor(0.78, 0.92, 1.00, 1)
+  else
+    pill:SetBackdropColor(0.05, 0.04, 0.03, 0.88)
+    pill:SetBackdropBorderColor(0.28, 0.24, 0.16, 0.75)
+    SetSolidColor(pill.glow, 1, 1, 1, 0)
+    SetSolidColor(pill.dot, 0.32, 0.29, 0.22, 1)
+    pill.label:SetTextColor(0.48, 0.44, 0.36, 1)
+  end
+end
+
+--- Build / refresh modern compare chrome on a card (pills + outcome tag).
+local function EnsureCompareChrome(card)
+  if card.youCheck then
+    card.youCheck:Hide()
+    card.youCheck = nil
+  end
+  if card.compareLabel then
+    card.compareLabel:Hide()
+  end
+  if card.compare then
+    card.compare:Hide()
+  end
+
+  if not card.compareRow then
+    local row = CreateFrame("Frame", nil, card)
+    row:SetSize(164, 24)
+    row:SetPoint("BOTTOMRIGHT", card, "BOTTOMRIGHT", -CARD_PAD, 12)
+    row:Hide()
+
+    local themPill = CreateComparePill(row, "Them")
+    local youPill = CreateComparePill(row, "You")
+    youPill:SetPoint("RIGHT", row, "RIGHT", 0, 0)
+    themPill:SetPoint("RIGHT", youPill, "LEFT", -6, 0)
+
+    card.compareRow = row
+    card.themPill = themPill
+    card.youPill = youPill
+  end
+
+  if not card.compareTag then
+    local tag = card:CreateFontString(nil, "OVERLAY")
+    SetFS(tag, 11)
+    tag:SetJustifyH("LEFT")
+    tag:SetPoint("BOTTOMLEFT", card.iconSlot, "BOTTOMRIGHT", 14, 14)
+    tag:Hide()
+    card.compareTag = tag
+  elseif card.compareTag and card.iconSlot then
+    card.compareTag:ClearAllPoints()
+    card.compareTag:SetJustifyH("LEFT")
+    card.compareTag:SetPoint("BOTTOMLEFT", card.iconSlot, "BOTTOMRIGHT", 14, 14)
+  end
+
+  return card.compareRow
+end
+
 local function AcquireCard(parent, index)
   if cardPool[index] then
     local existing = cardPool[index]
-    -- Hot-upgrade pooled cards created before compare UI existed
-    if existing.youCheck then
-      existing.youCheck:Hide()
-      existing.youCheck = nil
-    end
-    if not existing.compareLabel then
-      local compareLabel = existing:CreateFontString(nil, "OVERLAY")
-      SetFS(compareLabel, 11)
-      compareLabel:SetJustifyH("RIGHT")
-      compareLabel:SetPoint("BOTTOMRIGHT", existing, "BOTTOMRIGHT", -CARD_PAD, 14)
-      compareLabel:Hide()
-      existing.compareLabel = compareLabel
-    end
+    EnsureCompareChrome(existing)
     return existing
   end
 
@@ -256,7 +365,7 @@ local function AcquireCard(parent, index)
   icon:SetTexCoord(0.07, 0.93, 0.07, 0.93)
   card.icon = icon
 
-  -- Completed check overlay (hidden unless earned) — peer / primary
+  -- Completed check overlay (hidden unless earned) — self view / peer complete
   local check = card:CreateTexture(nil, "OVERLAY", nil, 7)
   check:SetSize(22, 22)
   check:SetPoint("BOTTOMRIGHT", icon, "BOTTOMRIGHT", 4, -4)
@@ -264,13 +373,7 @@ local function AcquireCard(parent, index)
   check:Hide()
   card.check = check
 
-  -- Compare legend (Them / You) — avoid name "compare" (easy to confuse with logic)
-  local compareLabel = card:CreateFontString(nil, "OVERLAY")
-  SetFS(compareLabel, 11)
-  compareLabel:SetJustifyH("RIGHT")
-  compareLabel:SetPoint("BOTTOMRIGHT", card, "BOTTOMRIGHT", -CARD_PAD, 14)
-  compareLabel:Hide()
-  card.compareLabel = compareLabel
+  EnsureCompareChrome(card)
 
   -- Title
   local title = card:CreateFontString(nil, "OVERLAY")
@@ -372,27 +475,98 @@ local function ApplyCompareChrome(card, achievementId)
   local peerDone = IsShownComplete(achievementId) and true or false
   local selfDone = LA:IsComplete(achievementId) and true or false
 
-  local label = card.compareLabel or card.compare
-  if label then
-    local themMark = peerDone and "|cff3dbe3dThem|r" or "|cff777777Them|r"
-    local youMark = selfDone and "|cff73d0ffYou|r" or "|cff777777You|r"
-    label:SetText(themMark .. "  /  " .. youMark)
-    label:Show()
+  EnsureCompareChrome(card)
+
+  StyleComparePill(card.themPill, peerDone, "them")
+  StyleComparePill(card.youPill, selfDone, "you")
+  if card.compareRow then
+    card.compareRow:Show()
+  end
+
+  if card.compareTag then
+    if peerDone and selfDone then
+      card.compareTag:SetText("Shared")
+      card.compareTag:SetTextColor(C.cmpShared[1], C.cmpShared[2], C.cmpShared[3], 1)
+      card.compareTag:Show()
+    elseif peerDone then
+      card.compareTag:SetText("They have it")
+      card.compareTag:SetTextColor(C.cmpThem[1], C.cmpThem[2], C.cmpThem[3], 0.95)
+      card.compareTag:Show()
+    elseif selfDone then
+      card.compareTag:SetText("Only you")
+      card.compareTag:SetTextColor(C.cmpYou[1], C.cmpYou[2], C.cmpYou[3], 0.95)
+      card.compareTag:Show()
+    else
+      card.compareTag:Hide()
+    end
   end
 
   if card.status then
     card.status:Hide()
   end
-
-  -- Border: both gold, them-only gold, you-only cool tint, neither dim
-  local br, bg, bb, ba = 0.40, 0.34, 0.22, 1
-  if peerDone and selfDone then
-    br, bg, bb, ba = 0.72, 0.58, 0.22, 1
-  elseif peerDone then
-    br, bg, bb, ba = 0.72, 0.58, 0.22, 1
-  elseif selfDone then
-    br, bg, bb, ba = 0.35, 0.55, 0.72, 1
+  if card.check then
+    card.check:Hide()
   end
+
+  -- Card surface: shared / them / you / neither
+  local br, bg, bb, ba = 0.36, 0.30, 0.18, 1
+  if peerDone and selfDone then
+    br, bg, bb, ba = 0.78, 0.64, 0.24, 1
+    card:SetBackdropColor(0.17, 0.14, 0.07, 0.96)
+    if card.accent and card.accent.SetColorTexture then
+      card.accent:SetColorTexture(0.92, 0.78, 0.28, 1)
+    end
+    if card.wash then
+      card.wash:SetAlpha(0.30)
+    end
+    if card.iconSlot then
+      card.iconSlot:SetVertexColor(1.0, 0.90, 0.40)
+    end
+    Color(card.title, "gold")
+    Color(card.desc, "cream")
+  elseif peerDone then
+    br, bg, bb, ba = 0.48, 0.68, 0.32, 1
+    card:SetBackdropColor(0.12, 0.14, 0.08, 0.95)
+    if card.accent and card.accent.SetColorTexture then
+      card.accent:SetColorTexture(0.50, 0.78, 0.35, 0.95)
+    end
+    if card.wash then
+      card.wash:SetAlpha(0.22)
+    end
+    if card.iconSlot then
+      card.iconSlot:SetVertexColor(0.70, 0.90, 0.50)
+    end
+    Color(card.title, "cream")
+    card.desc:SetTextColor(0.78, 0.86, 0.68, 1)
+  elseif selfDone then
+    br, bg, bb, ba = 0.35, 0.58, 0.78, 1
+    card:SetBackdropColor(0.07, 0.10, 0.15, 0.96)
+    if card.accent and card.accent.SetColorTexture then
+      card.accent:SetColorTexture(0.40, 0.68, 0.90, 0.95)
+    end
+    if card.wash then
+      card.wash:SetAlpha(0.20)
+    end
+    if card.iconSlot then
+      card.iconSlot:SetVertexColor(0.55, 0.78, 0.95)
+    end
+    Color(card.title, "cream")
+    card.desc:SetTextColor(0.70, 0.80, 0.90, 1)
+  else
+    card:SetBackdropColor(0.08, 0.07, 0.05, 0.92)
+    if card.accent and card.accent.SetColorTexture then
+      card.accent:SetColorTexture(0.32, 0.28, 0.18, 0.65)
+    end
+    if card.wash then
+      card.wash:SetAlpha(0.08)
+    end
+    if card.iconSlot then
+      card.iconSlot:SetVertexColor(0.50, 0.48, 0.42)
+    end
+    Color(card.title, "greyTitle")
+    card.desc:SetTextColor(0.58, 0.54, 0.44, 1)
+  end
+
   card._borderR, card._borderG, card._borderB, card._borderA = br, bg, bb, ba
   card:SetBackdropBorderColor(br, bg, bb, ba)
 
@@ -400,9 +574,17 @@ local function ApplyCompareChrome(card, achievementId)
 end
 
 local function ClearCompareChrome(card)
-  local label = card.compareLabel or card.compare
-  if label then
-    label:Hide()
+  if card.compareRow then
+    card.compareRow:Hide()
+  end
+  if card.compareTag then
+    card.compareTag:Hide()
+  end
+  if card.compareLabel then
+    card.compareLabel:Hide()
+  end
+  if card.compare then
+    card.compare:Hide()
   end
   card._borderR, card._borderG, card._borderB, card._borderA = nil, nil, nil, nil
 end
@@ -523,7 +705,28 @@ local function PopulateAchievements(categoryId)
     )
     card.desc:SetText(def.description or "")
 
-    if complete then
+    local pts = def.points or 0
+    if pts > 0 then
+      card.points:SetText(pts .. " pts")
+      card.points:Show()
+    else
+      card.points:SetText("FoS")
+      Color(card.points, "goldDim")
+      card.points:Show()
+    end
+
+    local current, required = GetShownProgress(def.id)
+    if viewingPeer then
+      ApplyCompareChrome(card, def.id)
+      if complete or selfDone then
+        Color(card.points, "gold")
+      else
+        card.points:SetTextColor(0.55, 0.50, 0.35, 1)
+      end
+      card.barBg:Hide()
+      card.desc:SetHeight(36)
+    elseif complete then
+      ClearCompareChrome(card)
       Color(card.title, "gold")
       Color(card.desc, "cream")
       card:SetBackdropColor(unpack(C.cardDone))
@@ -535,52 +738,7 @@ local function PopulateAchievements(categoryId)
       card.iconSlot:SetVertexColor(1.0, 0.88, 0.35)
       card.check:Show()
       card.wash:SetAlpha(0.28)
-    elseif viewingPeer and selfDone then
-      -- They lack it; you have it — cooler wash so the gap is obvious
-      Color(card.title, "cream")
-      card.desc:SetTextColor(0.70, 0.78, 0.88, 1)
-      card:SetBackdropColor(0.08, 0.10, 0.14, 0.94)
-      if card.accent.SetColorTexture then
-        card.accent:SetColorTexture(0.35, 0.55, 0.72, 0.9)
-      end
-      card.iconSlot:SetVertexColor(0.55, 0.72, 0.90)
-      card.check:Hide()
-      card.wash:SetAlpha(0.18)
-    else
-      Color(card.title, "greyTitle")
-      card.desc:SetTextColor(0.62, 0.58, 0.48, 1)
-      card:SetBackdropColor(unpack(C.cardTodo))
-      card:SetBackdropBorderColor(unpack(C.borderDim))
-      if card.accent.SetColorTexture then
-        card.accent:SetColorTexture(0.35, 0.30, 0.20, 0.7)
-      end
-      card.iconSlot:SetVertexColor(0.55, 0.55, 0.50)
-      card.check:Hide()
-      card.wash:SetAlpha(0.10)
-    end
-
-    local pts = def.points or 0
-    if pts > 0 then
-      card.points:SetText(pts .. " pts")
-      card.points:Show()
-    else
-      card.points:SetText("FoS")
-      Color(card.points, "goldDim")
-      card.points:Show()
-    end
-    if complete or (viewingPeer and selfDone) then
       Color(card.points, "gold")
-    else
-      card.points:SetTextColor(0.55, 0.50, 0.35, 1)
-    end
-
-    local current, required = GetShownProgress(def.id)
-    if viewingPeer then
-      ApplyCompareChrome(card, def.id)
-      card.barBg:Hide()
-      card.desc:SetHeight(42)
-    elseif complete then
-      ClearCompareChrome(card)
       card.barBg:Hide()
       local earned = GetShownEarnedDate(def.id)
       if earned then
@@ -594,6 +752,17 @@ local function PopulateAchievements(categoryId)
       card._borderR, card._borderG, card._borderB, card._borderA = 0.72, 0.58, 0.22, 1
     else
       ClearCompareChrome(card)
+      Color(card.title, "greyTitle")
+      card.desc:SetTextColor(0.62, 0.58, 0.48, 1)
+      card:SetBackdropColor(unpack(C.cardTodo))
+      card:SetBackdropBorderColor(unpack(C.borderDim))
+      if card.accent.SetColorTexture then
+        card.accent:SetColorTexture(0.35, 0.30, 0.20, 0.7)
+      end
+      card.iconSlot:SetVertexColor(0.55, 0.55, 0.50)
+      card.check:Hide()
+      card.wash:SetAlpha(0.10)
+      card.points:SetTextColor(0.55, 0.50, 0.35, 1)
       card.status:SetText("")
       card.status:Hide()
       card.desc:SetHeight(34)
@@ -639,9 +808,11 @@ local function PopulateAchievements(categoryId)
     if viewingPeer then
       local them, you, both, total = GetCompareCounts(categoryId)
       UI.frame.catCount:SetText(
-        "Them " .. them .. "/" .. total
-          .. " | You " .. you .. "/" .. total
-          .. " | Both " .. both
+        "|cff8cd463Them " .. them .. "/" .. total .. "|r"
+          .. "   ·   "
+          .. "|cff73c8faYou " .. you .. "/" .. total .. "|r"
+          .. "   ·   "
+          .. "|cffe8c652Shared " .. both .. "|r"
       )
     else
       local earned, total = 0, #list
@@ -1319,16 +1490,16 @@ function UI:Init()
   f.pointsLabel = pointsLabel
 
   local viewLabel = header:CreateFontString(nil, "OVERLAY")
-  SetFS(viewLabel, 12)
-  viewLabel:SetPoint("LEFT", title, "RIGHT", 16, 0)
-  viewLabel:SetTextColor(0.75, 0.90, 0.55, 1)
+  SetFS(viewLabel, 13)
+  viewLabel:SetPoint("LEFT", title, "RIGHT", 18, 0)
+  viewLabel:SetTextColor(0.70, 0.86, 0.98, 1)
   viewLabel:Hide()
   f.viewLabel = viewLabel
 
   youBtn = CreateFrame("Button", nil, header, "UIPanelButtonTemplate")
-  youBtn:SetSize(56, 22)
-  youBtn:SetPoint("RIGHT", pointsLabel, "LEFT", -10, 0)
-  youBtn:SetText("You")
+  youBtn:SetSize(64, 24)
+  youBtn:SetPoint("RIGHT", pointsLabel, "LEFT", -12, 0)
+  youBtn:SetText("Back")
   youBtn:Hide()
   youBtn:SetScript("OnClick", function()
     ClearPeerView()

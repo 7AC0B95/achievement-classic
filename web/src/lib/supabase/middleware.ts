@@ -1,3 +1,8 @@
+import {
+  ACTIVE_CHARACTER_COOKIE,
+  activeCharacterCookieOptions,
+  isCharacterId,
+} from "@/lib/active-character";
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
@@ -27,5 +32,15 @@ export async function updateSession(request: NextRequest) {
 
   // Refresh session — important for Server Components
   await supabase.auth.getUser();
+
+  const characterId = request.nextUrl.searchParams.get("character");
+  if (isCharacterId(characterId)) {
+    supabaseResponse.cookies.set(
+      ACTIVE_CHARACTER_COOKIE,
+      characterId,
+      activeCharacterCookieOptions(),
+    );
+  }
+
   return supabaseResponse;
 }

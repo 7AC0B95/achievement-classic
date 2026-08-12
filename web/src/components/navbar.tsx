@@ -1,10 +1,12 @@
 "use client";
 
+import { CharacterSelect } from "@/components/character-select";
+import type { CharacterRow } from "@/lib/types";
+import { cn } from "@/lib/utils";
+import { Crown, Menu, Trophy, X } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Crown, Menu, Trophy, X } from "lucide-react";
 import { useState } from "react";
-import { cn } from "@/lib/utils";
 
 const LINKS = [
   { href: "/", label: "Home" },
@@ -13,7 +15,15 @@ const LINKS = [
   { href: "/dashboard", label: "Dashboard" },
 ];
 
-export function Navbar() {
+interface NavbarProps {
+  characters?: CharacterRow[];
+  selectedId?: string | null;
+}
+
+export function Navbar({
+  characters = [],
+  selectedId = null,
+}: NavbarProps) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
 
@@ -50,9 +60,20 @@ export function Navbar() {
               </Link>
             );
           })}
+          {characters.length > 0 ? (
+            <CharacterSelect
+              characters={characters}
+              selectedId={selectedId}
+              persistActive
+              compact
+              align="end"
+              label="Active character"
+              className="w-52"
+            />
+          ) : null}
           <Link
             href="/dashboard"
-            className="ml-2 inline-flex items-center gap-2 rounded-md bg-amber-500 px-3.5 py-2 text-sm font-semibold text-zinc-950 transition hover:bg-amber-400"
+            className="ml-1 inline-flex items-center gap-2 rounded-md bg-amber-500 px-3.5 py-2 text-sm font-semibold text-zinc-950 transition hover:bg-amber-400"
           >
             <Trophy className="h-4 w-4" />
             Connect
@@ -82,6 +103,18 @@ export function Navbar() {
                 {link.label}
               </Link>
             ))}
+            {characters.length > 0 ? (
+              <div className="px-1 py-2">
+                <CharacterSelect
+                  characters={characters}
+                  selectedId={selectedId}
+                  persistActive
+                  compact
+                  label="Active character"
+                  className="w-full"
+                />
+              </div>
+            ) : null}
           </div>
         </div>
       ) : null}

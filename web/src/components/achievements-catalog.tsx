@@ -9,7 +9,8 @@ import {
   SlidersHorizontal,
   X,
 } from "lucide-react";
-import { useDeferredValue, useMemo, useState, type ReactNode } from "react";
+import { useDeferredValue, useMemo, useState, type ReactNode, createElement } from "react";
+import { CharacterSelect } from "@/components/character-select";
 import {
   ACHIEVEMENT_CATEGORIES,
   type AchievementDensity,
@@ -17,21 +18,31 @@ import {
   type AchievementSort,
 } from "@/lib/achievement-filters";
 import { getAchievementIcon } from "@/lib/achievement-icons";
-import type { AchievementCategory, AchievementRow } from "@/lib/types";
+import {
+  formatCharacterLabel,
+  getCompareOutcome,
+  type CompareOutcome,
+} from "@/lib/active-character";
+import type { AchievementCategory, AchievementRow, CharacterRow } from "@/lib/types";
 import { cn, formatPoints } from "@/lib/utils";
 
 export interface CatalogAchievement extends AchievementRow {
   unlocked: boolean;
+  compareUnlocked?: boolean;
 }
 
 interface AchievementsCatalogProps {
   achievements: CatalogAchievement[];
-  characterLabel: string | null;
+  characters: CharacterRow[];
+  selected: CharacterRow | null;
+  compareCharacter: CharacterRow | null;
 }
 
 export function AchievementsCatalog({
   achievements,
-  characterLabel,
+  characters,
+  selected,
+  compareCharacter,
 }: AchievementsCatalogProps) {
   const [query, setQuery] = useState("");
   const [categories, setCategories] = useState<AchievementCategory[]>([]);
@@ -41,14 +52,35 @@ export function AchievementsCatalog({
   const [groupByCategory, setGroupByCategory] = useState(true);
 
   const deferredQuery = useDeferredValue(query.trim().toLowerCase());
+  const comparing = Boolean(compareCharacter);
+  const characterLabel = selected ? formatCharacterLabel(selected) : null;
+  const compareLabel = compareCharacter
+    ? formatCharacterLabel(compareCharacter)
+    : null;
+  const compareOptions = [
+    ...(compareCharacter &&
+    !characters.some((character) => character.id === compareCharacter.id)
+      ? [compareCharacter]
+      : []),
+    ...characters.filter((character) => character.id !== selected?.id),
+  ];
 
   const totals = useMemo(() => {
     const unlocked = achievements.filter((a) => a.unlocked);
+    const compareUnlocked = achievements.filter((a) => a.compareUnlocked);
+    const shared = achievements.filter((a) => a.unlocked && a.compareUnlocked);
+    const onlyYou = achievements.filter((a) => a.unlocked && !a.compareUnlocked);
+    const onlyThem = achievements.filter((a) => !a.unlocked && a.compareUnlocked);
     return {
       count: achievements.length,
       unlocked: unlocked.length,
       points: achievements.reduce((sum, a) => sum + a.points, 0),
       earnedPoints: unlocked.reduce((sum, a) => sum + a.points, 0),
+      compareCount: compareUnlocked.length,
+      comparePoints: compareUnlocked.reduce((sum, a) => sum + a.points, 0),
+      shared: shared.length,
+      onlyYou: onlyYou.length,
+      onlyThem: onlyThem.length,
     };
   }, [achievements]);
 
@@ -80,8 +112,25 @@ export function AchievementsCatalog({
       rows = rows.filter((a) => categories.includes(a.category));
     }
 
-    if (progress === "unlocked") rows = rows.filter((a) => a.unlocked);
-    if (progress === "locked") rows = rows.filter((a) => !a.unlocked);
+    const mode =
+      comparing ||
+      progress === "all" ||
+      progress === "unlocked" ||
+      progress === "locked"
+        ? progress
+        : "all";
+
+    if (mode === "unlocked") rows = rows.filter((a) => a.unlocked);
+    if (mode === "locked") rows = rows.filter((a) => !a.unlocked);
+    if (mode === "shared") {
+      rows = rows.filter((a) => a.unlocked && a.compareUnlocked);
+    }
+    if (mode === "only_you") {
+      rows = rows.filter((a) => a.unlocked && !a.compareUnlocked);
+    }
+    if (mode === "only_them") {
+      rows = rows.filter((a) => !a.unlocked && a.compareUnlocked);
+    }
 
     rows.sort((a, b) => {
       switch (sort) {
@@ -105,7 +154,7 @@ export function AchievementsCatalog({
     });
 
     return rows;
-  }, [achievements, deferredQuery, categories, progress, sort]);
+  }, [achievements, deferredQuery, categories, progress, sort, comparing]);
 
   const grouped = useMemo(() => {
     if (!groupByCategory) return null;
@@ -137,6 +186,8 @@ export function AchievementsCatalog({
 
   const progressPct =
     totals.count === 0 ? 0 : Math.round((totals.unlocked / totals.count) * 100);
+  const comparePct =
+    totals.count === 0 ? 0 : Math.round((totals.compareCount / totals.count) * 100);
 
   return (
     <div className="space-y-6">
@@ -149,13 +200,7 @@ export function AchievementsCatalog({
             </h1>
             <p className="mt-2 max-w-2xl text-sm text-zinc-400">
               Browse, search, and track custom achievements.
-              {characterLabel ? (
-                <>
-                  {" "}
-                  Progress shown for{" "}
-                  <span className="text-amber-300">{characterLabel}</span>.
-                </>
-              ) : (
+              {characterLabel ? null : (
                 <> Sync a character on the dashboard to track unlocks.</>
               )}
             </p>
@@ -174,12 +219,69 @@ export function AchievementsCatalog({
           </div>
         </div>
 
-        <div className="mt-4 h-2 overflow-hidden rounded-full bg-zinc-950">
-          <div
-            className="h-full rounded-full bg-gradient-to-r from-amber-600 to-amber-400 transition-all duration-500"
-            style={{ width: `${progressPct}%` }}
-          />
-        </div>
+        {characters.length > 0 ? (
+          <div className="mt-5 grid gap-3 sm:grid-cols-2">
+            <CharacterSelect
+              characters={characters}
+              selectedId={selected?.id ?? null}
+              persistActive
+              urlParam="character"
+              label="Active character"
+            />
+            {compareOptions.length > 0 || compareCharacter ? (
+              <CharacterSelect
+                characters={compareOptions}
+                selectedId={compareCharacter?.id ?? null}
+                allowEmpty
+                emptyLabel="No comparison"
+                urlParam="compare"
+                label="Compare with"
+              />
+            ) : (
+              <p className="self-end text-sm text-zinc-500">
+                Sync another character, or open a public profile to compare.
+              </p>
+            )}
+          </div>
+        ) : null}
+
+        {comparing && compareLabel && characterLabel ? (
+          <div className="mt-5 grid gap-3 sm:grid-cols-2">
+            <CompareMeter
+              label={characterLabel}
+              caption={`${totals.unlocked}/${totals.count} · ${formatPoints(totals.earnedPoints)} pts`}
+              percent={progressPct}
+              tone="you"
+            />
+            <CompareMeter
+              label={compareLabel}
+              caption={`${totals.compareCount}/${totals.count} · ${formatPoints(totals.comparePoints)} pts`}
+              percent={comparePct}
+              tone="them"
+            />
+          </div>
+        ) : (
+          <div className="mt-4 h-2 overflow-hidden rounded-full bg-zinc-950">
+            <div
+              className="h-full rounded-full bg-gradient-to-r from-amber-600 to-amber-400 transition-all duration-500"
+              style={{ width: `${progressPct}%` }}
+            />
+          </div>
+        )}
+
+        {comparing ? (
+          <div className="mt-4 flex flex-wrap gap-2 text-xs">
+            <span className="rounded-md bg-emerald-500/15 px-2 py-1 text-emerald-300">
+              Shared {totals.shared}
+            </span>
+            <span className="rounded-md bg-sky-500/15 px-2 py-1 text-sky-300">
+              Only {selected?.name ?? "you"} {totals.onlyYou}
+            </span>
+            <span className="rounded-md bg-lime-500/15 px-2 py-1 text-lime-300">
+              Only {compareCharacter?.name ?? "them"} {totals.onlyThem}
+            </span>
+          </div>
+        ) : null}
       </section>
 
       {/* Sticky controls */}
@@ -257,8 +359,18 @@ export function AchievementsCatalog({
                 ["all", "All"],
                 ["unlocked", "Unlocked"],
                 ["locked", "Locked"],
-              ] as const
-            ).map(([value, label]) => (
+              ] as Array<[AchievementProgressFilter, string]>
+            )
+              .concat(
+                comparing
+                  ? [
+                      ["shared", "Shared"],
+                      ["only_you", `Only ${selected?.name ?? "you"}`],
+                      ["only_them", `Only ${compareCharacter?.name ?? "them"}`],
+                    ]
+                  : [],
+              )
+              .map(([value, filterLabel]) => (
               <button
                 key={value}
                 type="button"
@@ -270,7 +382,7 @@ export function AchievementsCatalog({
                     : "bg-zinc-900 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200",
                 )}
               >
-                {label}
+                {filterLabel}
               </button>
             ))}
 
@@ -341,12 +453,24 @@ export function AchievementsCatalog({
                   {group.items.length} shown
                 </span>
               </div>
-              <AchievementResults items={group.items} density={density} />
+              <AchievementResults
+                items={group.items}
+                density={density}
+                comparing={comparing}
+                youName={selected?.name ?? "You"}
+                themName={compareCharacter?.name ?? "Them"}
+              />
             </section>
           ))}
         </div>
       ) : (
-        <AchievementResults items={filtered} density={density} />
+        <AchievementResults
+          items={filtered}
+          density={density}
+          comparing={comparing}
+          youName={selected?.name ?? "You"}
+          themName={compareCharacter?.name ?? "Them"}
+        />
       )}
     </div>
   );
@@ -355,15 +479,27 @@ export function AchievementsCatalog({
 function AchievementResults({
   items,
   density,
+  comparing,
+  youName,
+  themName,
 }: {
   items: CatalogAchievement[];
   density: AchievementDensity;
+  comparing: boolean;
+  youName: string;
+  themName: string;
 }) {
   if (density === "comfortable") {
     return (
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
         {items.map((item) => (
-          <AchievementCardRow key={item.id} item={item} />
+          <AchievementCardRow
+            key={item.id}
+            item={item}
+            comparing={comparing}
+            youName={youName}
+            themName={themName}
+          />
         ))}
       </div>
     );
@@ -372,32 +508,54 @@ function AchievementResults({
   return (
     <ul className="overflow-hidden rounded-xl border border-zinc-800 bg-zinc-900/40 divide-y divide-zinc-800/80">
       {items.map((item) => (
-        <AchievementListRow key={item.id} item={item} />
+        <AchievementListRow
+          key={item.id}
+          item={item}
+          comparing={comparing}
+          youName={youName}
+          themName={themName}
+        />
       ))}
     </ul>
   );
 }
 
-function AchievementListRow({ item }: { item: CatalogAchievement }) {
-  const Icon = getAchievementIcon(item.icon);
+function AchievementListRow({
+  item,
+  comparing,
+  youName,
+  themName,
+}: {
+  item: CatalogAchievement;
+  comparing: boolean;
+  youName: string;
+  themName: string;
+}) {
+  const themUnlocked = Boolean(item.compareUnlocked);
+  const earned = item.unlocked || (comparing && themUnlocked);
+  const outcome = comparing
+    ? getCompareOutcome(item.unlocked, themUnlocked)
+    : null;
 
   return (
     <li
       className={cn(
         "flex items-start gap-3 px-3 py-3 transition sm:items-center sm:px-4",
         "hover:bg-zinc-800/35",
-        !item.unlocked && "opacity-75",
+        !earned && "opacity-75",
       )}
     >
       <div
         className={cn(
           "mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-md border sm:mt-0",
-          item.unlocked
+          earned
             ? "border-amber-500/40 bg-amber-500/10 text-amber-300"
             : "border-zinc-700 bg-zinc-950 text-zinc-500",
         )}
       >
-        {item.unlocked ? <Icon className="h-4 w-4" /> : <Lock className="h-3.5 w-3.5" />}
+        {earned
+          ? createElement(getAchievementIcon(item.icon), { className: "h-4 w-4" })
+          : <Lock className="h-3.5 w-3.5" />}
       </div>
 
       <div className="min-w-0 flex-1">
@@ -405,7 +563,7 @@ function AchievementListRow({ item }: { item: CatalogAchievement }) {
           <h3
             className={cn(
               "truncate font-medium",
-              item.unlocked ? "text-zinc-50" : "text-zinc-400",
+              earned ? "text-zinc-50" : "text-zinc-400",
             )}
           >
             {item.name}
@@ -413,7 +571,9 @@ function AchievementListRow({ item }: { item: CatalogAchievement }) {
           <span className="rounded border border-zinc-800 px-1.5 py-0.5 text-[10px] uppercase tracking-wider text-zinc-500">
             {item.category}
           </span>
-          {item.unlocked ? (
+          {comparing && outcome ? (
+            <CompareTag outcome={outcome} />
+          ) : item.unlocked ? (
             <span className="rounded bg-emerald-500/15 px-1.5 py-0.5 text-[10px] font-medium text-emerald-300">
               Unlocked
             </span>
@@ -426,6 +586,16 @@ function AchievementListRow({ item }: { item: CatalogAchievement }) {
         <p className="mt-0.5 line-clamp-2 text-sm text-zinc-500 sm:line-clamp-1">
           {item.description}
         </p>
+        {comparing ? (
+          <div className="mt-1.5">
+            <ComparePills
+              you={item.unlocked}
+              them={themUnlocked}
+              youName={youName}
+              themName={themName}
+            />
+          </div>
+        ) : null}
       </div>
 
       <div className="shrink-0 text-right">
@@ -438,14 +608,28 @@ function AchievementListRow({ item }: { item: CatalogAchievement }) {
   );
 }
 
-function AchievementCardRow({ item }: { item: CatalogAchievement }) {
-  const Icon = getAchievementIcon(item.icon);
+function AchievementCardRow({
+  item,
+  comparing,
+  youName,
+  themName,
+}: {
+  item: CatalogAchievement;
+  comparing: boolean;
+  youName: string;
+  themName: string;
+}) {
+  const themUnlocked = Boolean(item.compareUnlocked);
+  const earned = item.unlocked || (comparing && themUnlocked);
+  const outcome = comparing
+    ? getCompareOutcome(item.unlocked, themUnlocked)
+    : null;
 
   return (
     <article
       className={cn(
         "rounded-xl border bg-zinc-900/60 p-4 transition",
-        item.unlocked
+        earned
           ? "border-amber-500/25 hover:border-amber-400/50"
           : "border-zinc-800 opacity-80 hover:opacity-100",
       )}
@@ -454,12 +638,14 @@ function AchievementCardRow({ item }: { item: CatalogAchievement }) {
         <div
           className={cn(
             "flex h-10 w-10 items-center justify-center rounded-lg border",
-            item.unlocked
+            earned
               ? "border-amber-500/40 bg-amber-500/10 text-amber-300"
               : "border-zinc-700 bg-zinc-950 text-zinc-500",
           )}
         >
-          {item.unlocked ? <Icon className="h-4.5 w-4.5" /> : <Lock className="h-4 w-4" />}
+          {earned
+            ? createElement(getAchievementIcon(item.icon), { className: "h-4.5 w-4.5" })
+            : <Lock className="h-4 w-4" />}
         </div>
         <div className="text-right">
           <div className="font-semibold text-amber-400">{formatPoints(item.points)} pts</div>
@@ -471,7 +657,7 @@ function AchievementCardRow({ item }: { item: CatalogAchievement }) {
       <h3
         className={cn(
           "mt-3 font-[family-name:var(--font-display)] text-lg",
-          item.unlocked ? "text-zinc-50" : "text-zinc-400",
+          earned ? "text-zinc-50" : "text-zinc-400",
         )}
       >
         {item.name}
@@ -479,14 +665,118 @@ function AchievementCardRow({ item }: { item: CatalogAchievement }) {
       <p className="mt-1.5 line-clamp-3 text-sm leading-relaxed text-zinc-400">
         {item.description}
       </p>
-      <div className="mt-3 text-xs">
-        {item.unlocked ? (
-          <span className="text-emerald-400">Unlocked</span>
+      <div className="mt-3">
+        {comparing && outcome ? (
+          <div className="flex flex-col gap-2">
+            <ComparePills
+              you={item.unlocked}
+              them={themUnlocked}
+              youName={youName}
+              themName={themName}
+            />
+            <CompareTag outcome={outcome} />
+          </div>
+        ) : item.unlocked ? (
+          <span className="text-xs text-emerald-400">Unlocked</span>
         ) : (
-          <span className="text-zinc-600">Locked</span>
+          <span className="text-xs text-zinc-600">Locked</span>
         )}
       </div>
     </article>
+  );
+}
+
+function CompareMeter({
+  label,
+  caption,
+  percent,
+  tone,
+}: {
+  label: string;
+  caption: string;
+  percent: number;
+  tone: "you" | "them";
+}) {
+  return (
+    <div>
+      <div className="flex items-baseline justify-between gap-2 text-sm">
+        <span className="truncate font-medium text-zinc-200">{label}</span>
+        <span className="shrink-0 text-xs text-zinc-500">{caption}</span>
+      </div>
+      <div className="mt-1.5 h-2 overflow-hidden rounded-full bg-zinc-950">
+        <div
+          className={cn(
+            "h-full rounded-full transition-all duration-500",
+            tone === "you"
+              ? "bg-gradient-to-r from-sky-600 to-sky-400"
+              : "bg-gradient-to-r from-lime-700 to-lime-400",
+          )}
+          style={{ width: `${percent}%` }}
+        />
+      </div>
+    </div>
+  );
+}
+
+function ComparePills({
+  you,
+  them,
+  youName,
+  themName,
+}: {
+  you: boolean;
+  them: boolean;
+  youName: string;
+  themName: string;
+}) {
+  return (
+    <div className="flex flex-wrap gap-1.5">
+      <span
+        className={cn(
+          "rounded px-1.5 py-0.5 text-[10px] font-medium",
+          you ? "bg-sky-500/15 text-sky-300" : "bg-zinc-800 text-zinc-600",
+        )}
+      >
+        {youName}
+      </span>
+      <span
+        className={cn(
+          "rounded px-1.5 py-0.5 text-[10px] font-medium",
+          them ? "bg-lime-500/15 text-lime-300" : "bg-zinc-800 text-zinc-600",
+        )}
+      >
+        {themName}
+      </span>
+    </div>
+  );
+}
+
+function CompareTag({ outcome }: { outcome: CompareOutcome }) {
+  if (outcome === "none") {
+    return (
+      <span className="rounded bg-zinc-800 px-1.5 py-0.5 text-[10px] font-medium text-zinc-500">
+        Locked
+      </span>
+    );
+  }
+
+  const copy =
+    outcome === "shared"
+      ? "Shared"
+      : outcome === "only_you"
+        ? "Only you"
+        : "Only them";
+  const tone =
+    outcome === "shared"
+      ? "bg-emerald-500/15 text-emerald-300"
+      : outcome === "only_you"
+        ? "bg-sky-500/15 text-sky-300"
+        : "bg-lime-500/15 text-lime-300";
+
+  return (
+    <span className={cn("rounded px-1.5 py-0.5 text-[10px] font-medium", tone)}>
+      {copy}
+    </span>
   );
 }
 

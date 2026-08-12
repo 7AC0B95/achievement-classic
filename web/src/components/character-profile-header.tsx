@@ -1,15 +1,21 @@
 import { getClassColor, getClassLabel } from "@/lib/class-colors";
 import type { CharacterRow, CharacterStatsRow } from "@/lib/types";
 import { cn, formatPoints } from "@/lib/utils";
+import { ArrowLeftRight } from "lucide-react";
+import Link from "next/link";
 
 interface CharacterProfileHeaderProps {
   character: CharacterRow;
   stats: CharacterStatsRow | null;
+  compareHref?: string | null;
+  compareLabel?: string | null;
 }
 
 export function CharacterProfileHeader({
   character,
   stats,
+  compareHref,
+  compareLabel,
 }: CharacterProfileHeaderProps) {
   const color = getClassColor(character.class);
 
@@ -65,6 +71,15 @@ export function CharacterProfileHeader({
             >
               {getClassLabel(character.class)}
             </span>
+            {compareHref && compareLabel ? (
+              <Link
+                href={compareHref}
+                className="inline-flex items-center gap-1.5 rounded-md border border-amber-500/30 bg-amber-500/10 px-2.5 py-1 text-amber-300 transition hover:border-amber-400/50"
+              >
+                <ArrowLeftRight className="h-3.5 w-3.5" />
+                Compare with {compareLabel}
+              </Link>
+            ) : null}
           </div>
         </div>
 

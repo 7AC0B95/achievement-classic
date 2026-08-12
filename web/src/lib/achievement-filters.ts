@@ -13,7 +13,13 @@ export const ACHIEVEMENT_CATEGORIES: AchievementCategory[] = [
   "Feats of Strength",
 ];
 
-export type AchievementProgressFilter = "all" | "unlocked" | "locked";
+export type AchievementProgressFilter =
+  | "all"
+  | "unlocked"
+  | "locked"
+  | "shared"
+  | "only_you"
+  | "only_them";
 
 export type AchievementSort =
   | "points_desc"

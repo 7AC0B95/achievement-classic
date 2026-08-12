@@ -7,6 +7,7 @@ import type {
   CharacterStatsRow,
   LeaderboardSort,
 } from "@/lib/types";
+import { cache } from "react";
 
 export function isSupabaseEnvReady() {
   return Boolean(
@@ -114,7 +115,7 @@ export async function fetchAchievements(): Promise<AchievementRow[]> {
   }
 }
 
-export async function fetchUserCharacters(): Promise<CharacterRow[]> {
+export const fetchUserCharacters = cache(async (): Promise<CharacterRow[]> => {
   if (!isSupabaseEnvReady()) return [];
 
   try {
@@ -134,24 +135,38 @@ export async function fetchUserCharacters(): Promise<CharacterRow[]> {
   } catch {
     return [];
   }
-}
+});
 
-export async function fetchUnlockedIdsForCharacter(
-  characterId: string | null,
-): Promise<Set<string>> {
-  if (!characterId || !isSupabaseEnvReady()) return new Set();
+export async function fetchUnlockedIdsForCharacters(
+  characterIds: string[],
+): Promise<Map<string, Set<string>>> {
+  const unlocked = new Map<string, Set<string>>();
+  const ids = [...new Set(characterIds.filter(Boolean))];
+  for (const id of ids) unlocked.set(id, new Set());
+  if (ids.length === 0 || !isSupabaseEnvReady()) return unlocked;
 
   try {
     const supabase = await createClient();
     const { data } = await supabase
       .from("character_achievements")
-      .select("achievement_id")
-      .eq("character_id", characterId);
+      .select("character_id, achievement_id")
+      .in("character_id", ids);
 
-    return new Set((data ?? []).map((r) => r.achievement_id as string));
+    for (const row of data ?? []) {
+      unlocked.get(row.character_id as string)?.add(row.achievement_id as string);
+    }
+    return unlocked;
   } catch {
-    return new Set();
+    return unlocked;
   }
+}
+
+export async function fetchUnlockedIdsForCharacter(
+  characterId: string | null,
+): Promise<Set<string>> {
+  if (!characterId) return new Set();
+  const unlocked = await fetchUnlockedIdsForCharacters([characterId]);
+  return unlocked.get(characterId) ?? new Set();
 }
 
 export async function fetchRealms(): Promise<string[]> {
@@ -159,7 +174,7 @@ export async function fetchRealms(): Promise<string[]> {
   return [...new Set(rows.map((r) => r.realm))].sort();
 }
 
-export async function fetchCharacterById(
+export const fetchCharacterById = cache(async function fetchCharacterById(
   id: string,
 ): Promise<CharacterRow | null> {
   if (!isSupabaseEnvReady()) return null;
@@ -177,7 +192,7 @@ export async function fetchCharacterById(
   } catch {
     return null;
   }
-}
+});
 
 export async function fetchCharacterAchievements(
   characterId: string,

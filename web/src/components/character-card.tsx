@@ -5,15 +5,17 @@ import { Skull, Sparkles } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, useTransition } from "react";
 import { updateCharacterStatus } from "@/actions/sync";
+import { setActiveCharacter } from "@/actions/character";
 import { getClassColor, getClassLabel } from "@/lib/class-colors";
 import type { CharacterRow, HardcoreStatus } from "@/lib/types";
 import { cn, formatPoints } from "@/lib/utils";
 
 interface CharacterCardProps {
   character: CharacterRow;
+  active?: boolean;
 }
 
-export function CharacterCard({ character }: CharacterCardProps) {
+export function CharacterCard({ character, active = false }: CharacterCardProps) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [status, setStatus] = useState<HardcoreStatus>(character.status);
@@ -23,6 +25,17 @@ export function CharacterCard({ character }: CharacterCardProps) {
   useEffect(() => {
     setStatus(character.status);
   }, [character.status, character.id]);
+
+  const makeActive = () => {
+    startTransition(async () => {
+      const result = await setActiveCharacter(character.id);
+      if (!result.ok) {
+        setError(result.message);
+        return;
+      }
+      router.refresh();
+    });
+  };
 
   const toggleStatus = () => {
     const previous = status;
@@ -48,7 +61,9 @@ export function CharacterCard({ character }: CharacterCardProps) {
     >
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <p className="text-xs uppercase tracking-wider text-zinc-500">Character</p>
+          <p className="text-xs uppercase tracking-wider text-zinc-500">
+            {active ? "Active character" : "Character"}
+          </p>
           <h2
             className="mt-1 font-[family-name:var(--font-display)] text-3xl"
             style={{ color }}
@@ -85,6 +100,20 @@ export function CharacterCard({ character }: CharacterCardProps) {
             >
               View profile
             </Link>
+            {active ? (
+              <span className="rounded-md border border-amber-500/40 bg-amber-500/15 px-2 py-1 text-amber-200">
+                Viewing
+              </span>
+            ) : (
+              <button
+                type="button"
+                onClick={makeActive}
+                disabled={pending}
+                className="rounded-md border border-zinc-700 bg-zinc-950 px-2 py-1 text-zinc-300 transition hover:border-amber-500/40 hover:text-amber-200 disabled:opacity-50"
+              >
+                Set active
+              </button>
+            )}
           </div>
         </div>
 

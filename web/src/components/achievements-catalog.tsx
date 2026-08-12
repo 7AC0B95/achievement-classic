@@ -18,11 +18,7 @@ import {
   type AchievementSort,
 } from "@/lib/achievement-filters";
 import { getAchievementIcon } from "@/lib/achievement-icons";
-import {
-  formatCharacterLabel,
-  getCompareOutcome,
-  type CompareOutcome,
-} from "@/lib/active-character";
+import { formatCharacterLabel } from "@/lib/active-character";
 import type { AchievementCategory, AchievementRow, CharacterRow } from "@/lib/types";
 import { cn, formatPoints } from "@/lib/utils";
 
@@ -533,9 +529,6 @@ function AchievementListRow({
 }) {
   const themUnlocked = Boolean(item.compareUnlocked);
   const earned = item.unlocked || (comparing && themUnlocked);
-  const outcome = comparing
-    ? getCompareOutcome(item.unlocked, themUnlocked)
-    : null;
 
   return (
     <li
@@ -571,8 +564,13 @@ function AchievementListRow({
           <span className="rounded border border-zinc-800 px-1.5 py-0.5 text-[10px] uppercase tracking-wider text-zinc-500">
             {item.category}
           </span>
-          {comparing && outcome ? (
-            <CompareTag outcome={outcome} />
+          {comparing ? (
+            <ComparePills
+              you={item.unlocked}
+              them={themUnlocked}
+              youName={youName}
+              themName={themName}
+            />
           ) : item.unlocked ? (
             <span className="rounded bg-emerald-500/15 px-1.5 py-0.5 text-[10px] font-medium text-emerald-300">
               Unlocked
@@ -586,16 +584,6 @@ function AchievementListRow({
         <p className="mt-0.5 line-clamp-2 text-sm text-zinc-500 sm:line-clamp-1">
           {item.description}
         </p>
-        {comparing ? (
-          <div className="mt-1.5">
-            <ComparePills
-              you={item.unlocked}
-              them={themUnlocked}
-              youName={youName}
-              themName={themName}
-            />
-          </div>
-        ) : null}
       </div>
 
       <div className="shrink-0 text-right">
@@ -621,9 +609,6 @@ function AchievementCardRow({
 }) {
   const themUnlocked = Boolean(item.compareUnlocked);
   const earned = item.unlocked || (comparing && themUnlocked);
-  const outcome = comparing
-    ? getCompareOutcome(item.unlocked, themUnlocked)
-    : null;
 
   return (
     <article
@@ -666,16 +651,13 @@ function AchievementCardRow({
         {item.description}
       </p>
       <div className="mt-3">
-        {comparing && outcome ? (
-          <div className="flex flex-col gap-2">
-            <ComparePills
-              you={item.unlocked}
-              them={themUnlocked}
-              youName={youName}
-              themName={themName}
-            />
-            <CompareTag outcome={outcome} />
-          </div>
+        {comparing ? (
+          <ComparePills
+            you={item.unlocked}
+            them={themUnlocked}
+            youName={youName}
+            themName={themName}
+          />
         ) : item.unlocked ? (
           <span className="text-xs text-emerald-400">Unlocked</span>
         ) : (
@@ -748,35 +730,6 @@ function ComparePills({
         {themName}
       </span>
     </div>
-  );
-}
-
-function CompareTag({ outcome }: { outcome: CompareOutcome }) {
-  if (outcome === "none") {
-    return (
-      <span className="rounded bg-zinc-800 px-1.5 py-0.5 text-[10px] font-medium text-zinc-500">
-        Locked
-      </span>
-    );
-  }
-
-  const copy =
-    outcome === "shared"
-      ? "Shared"
-      : outcome === "only_you"
-        ? "Only you"
-        : "Only them";
-  const tone =
-    outcome === "shared"
-      ? "bg-emerald-500/15 text-emerald-300"
-      : outcome === "only_you"
-        ? "bg-sky-500/15 text-sky-300"
-        : "bg-lime-500/15 text-lime-300";
-
-  return (
-    <span className={cn("rounded px-1.5 py-0.5 text-[10px] font-medium", tone)}>
-      {copy}
-    </span>
   );
 }
 

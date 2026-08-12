@@ -37,15 +37,3 @@ export function resolveActiveCharacter(
   }
   return characters[0];
 }
-
-export type CompareOutcome = "shared" | "only_you" | "only_them" | "none";
-
-export function getCompareOutcome(
-  unlocked: boolean,
-  compareUnlocked: boolean,
-): CompareOutcome {
-  if (unlocked && compareUnlocked) return "shared";
-  if (unlocked) return "only_you";
-  if (compareUnlocked) return "only_them";
-  return "none";
-}

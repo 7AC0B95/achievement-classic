@@ -117,6 +117,12 @@ export interface CharacterStatsRow {
   updated_at: string;
 }
 
+/** Catalog achievement joined with a character's unlock state for the profile dossier. */
+export interface CharacterProfileAchievement extends AchievementRow {
+  unlocked: boolean;
+  unlocked_at: string | null;
+}
+
 export type LeaderboardSort =
   | "total_points"
   | "achievement_count"

@@ -7,6 +7,8 @@ import Link from "next/link";
 interface CharacterProfileHeaderProps {
   character: CharacterRow;
   stats: CharacterStatsRow | null;
+  catalogUnlocked: number;
+  catalogTotal: number;
   compareHref?: string | null;
   compareLabel?: string | null;
 }
@@ -14,10 +16,16 @@ interface CharacterProfileHeaderProps {
 export function CharacterProfileHeader({
   character,
   stats,
+  catalogUnlocked,
+  catalogTotal,
   compareHref,
   compareLabel,
 }: CharacterProfileHeaderProps) {
   const color = getClassColor(character.class);
+  const catalogPercent =
+    catalogTotal === 0 ? 0 : Math.round((catalogUnlocked / catalogTotal) * 100);
+  const deaths = stats?.deaths ?? 0;
+  const zones = stats?.zones_visited.length ?? 0;
 
   return (
     <header
@@ -83,17 +91,29 @@ export function CharacterProfileHeader({
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-3 sm:min-w-[220px]">
+        <div className="grid min-w-[240px] grid-cols-2 gap-3 sm:grid-cols-3">
           <StatChip label="Points" value={formatPoints(character.total_points)} accent />
           <StatChip label="Unlocks" value={String(character.achievement_count)} />
-          {stats ? (
-            <StatChip label="Zones" value={String(stats.zones_visited.length)} />
-          ) : null}
+          <StatChip
+            label="Catalog"
+            value={`${catalogPercent}%`}
+            hint={`${catalogUnlocked} / ${catalogTotal}`}
+            accent
+          />
+          <StatChip label="Deaths" value={String(deaths)} />
+          <StatChip label="Zones" value={String(zones)} />
         </div>
       </div>
 
+      <div className="relative mt-5 h-2 overflow-hidden rounded-full bg-zinc-950">
+        <div
+          className="h-full rounded-full bg-gradient-to-r from-amber-600 to-amber-400 transition-all duration-500"
+          style={{ width: `${catalogPercent}%` }}
+        />
+      </div>
+
       {character.last_synced_at ? (
-        <p className="relative mt-5 text-xs text-zinc-500">
+        <p className="relative mt-3 text-xs text-zinc-500">
           Last synced {new Date(character.last_synced_at).toLocaleString()}
         </p>
       ) : null}
@@ -104,10 +124,12 @@ export function CharacterProfileHeader({
 function StatChip({
   label,
   value,
+  hint,
   accent,
 }: {
   label: string;
   value: string;
+  hint?: string;
   accent?: boolean;
 }) {
   return (
@@ -121,6 +143,7 @@ function StatChip({
       >
         {value}
       </div>
+      {hint ? <div className="mt-0.5 text-[11px] text-zinc-500">{hint}</div> : null}
     </div>
   );
 }

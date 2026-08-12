@@ -29,57 +29,57 @@ export function ActivityFeed({ items, title = "Live activity" }: ActivityFeedPro
           No unlocks yet. Sync a SavedVariables file from the dashboard to see live activity.
         </p>
       ) : (
-      <ul className="space-y-3">
-        {items.map((item) => {
-          const classColor = getClassColor(item.characters?.class ?? "WARRIOR");
-          const profileHref = item.characters?.id
-            ? `/characters/${item.characters.id}`
-            : null;
-          const name = (
-            <span className="font-semibold" style={{ color: classColor }}>
-              {item.characters?.name ?? "Unknown"}
-            </span>
-          );
+        <ul className="space-y-3">
+          {items.map((item) => {
+            const classColor = getClassColor(item.characters?.class ?? "WARRIOR");
+            const profileHref = item.characters?.id
+              ? `/characters/${item.characters.id}`
+              : null;
+            const name = (
+              <span className="font-semibold" style={{ color: classColor }}>
+                {item.characters?.name ?? "Unknown"}
+              </span>
+            );
 
-          return (
-            <li
-              key={item.id}
-              className="flex items-start justify-between gap-4 rounded-lg border border-zinc-800/80 bg-zinc-950/50 px-3 py-3 transition hover:border-amber-500/30"
-            >
-              <div>
-                <p className="text-sm text-zinc-200">
-                  {profileHref ? (
-                    <Link href={profileHref} className="hover:underline">
-                      {name}
-                    </Link>
-                  ) : (
-                    name
-                  )}
-                  <span className="text-zinc-500">
-                    {" "}
-                    ({item.characters?.realm}) ·{" "}
-                    {getClassLabel(item.characters?.class ?? "")}
-                  </span>
-                </p>
-                <p className="mt-1 text-sm text-zinc-400">
-                  unlocked{" "}
-                  <span className="text-amber-300">
-                    {item.achievements?.name ?? item.achievement_id}
-                  </span>
-                </p>
-              </div>
-              <div className="shrink-0 text-right">
-                <div className="text-sm font-semibold text-amber-400">
-                  +{formatPoints(item.achievements?.points ?? 0)}
+            return (
+              <li
+                key={item.id}
+                className="flex items-start justify-between gap-4 rounded-lg border border-zinc-800/80 bg-zinc-950/50 px-3 py-3 transition hover:border-amber-500/30"
+              >
+                <div>
+                  <p className="text-sm text-zinc-200">
+                    {profileHref ? (
+                      <Link href={profileHref} className="hover:underline">
+                        {name}
+                      </Link>
+                    ) : (
+                      name
+                    )}
+                    <span className="text-zinc-500">
+                      {" "}
+                      ({item.characters?.realm}) ·{" "}
+                      {getClassLabel(item.characters?.class ?? "")}
+                    </span>
+                  </p>
+                  <p className="mt-1 text-sm text-zinc-400">
+                    unlocked{" "}
+                    <span className="text-amber-300">
+                      {item.achievements?.name ?? item.achievement_id}
+                    </span>
+                  </p>
                 </div>
-                <div className="mt-1 text-[11px] text-zinc-500">
-                  {formatRelativeTime(item.unlocked_at)}
+                <div className="shrink-0 text-right">
+                  <div className="text-sm font-semibold text-amber-400">
+                    +{formatPoints(item.achievements?.points ?? 0)}
+                  </div>
+                  <div className="mt-1 text-[11px] text-zinc-500">
+                    {formatRelativeTime(item.unlocked_at)}
+                  </div>
                 </div>
-              </div>
-            </li>
-          );
-        })}
-      </ul>
+              </li>
+            );
+          })}
+        </ul>
       )}
     </section>
   );

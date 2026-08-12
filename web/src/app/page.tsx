@@ -8,7 +8,7 @@ import { fetchLeaderboard, fetchRecentActivity } from "@/lib/data";
 export default async function HomePage() {
   const [leaders, activity] = await Promise.all([
     fetchLeaderboard({ sort: "total_points" }),
-    fetchRecentActivity(8),
+    fetchRecentActivity(5),
   ]);
 
   return (

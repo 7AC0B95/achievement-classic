@@ -1356,7 +1356,7 @@ local function CreateMinimapButton()
 
   local icon = btn:CreateTexture(nil, "BACKGROUND")
   icon:SetSize(20, 20)
-  icon:SetTexture("Interface\\Icons\\INV_Misc_Coin_17")
+  icon:SetTexture("Interface\\Icons\\INV_Crown_01")
   icon:SetPoint("CENTER", 1, 0)
   btn.icon = icon
 
@@ -1473,7 +1473,7 @@ function UI:Init()
   local titleIcon = header:CreateTexture(nil, "OVERLAY")
   titleIcon:SetSize(32, 32)
   titleIcon:SetPoint("LEFT", 14, 0)
-  titleIcon:SetTexture("Interface\\Icons\\INV_Misc_Coin_02")
+  titleIcon:SetTexture("Interface\\Icons\\INV_Crown_01")
   titleIcon:SetTexCoord(0.07, 0.93, 0.07, 0.93)
 
   local title = header:CreateFontString(nil, "OVERLAY")

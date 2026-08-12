@@ -26,7 +26,7 @@ export default async function DashboardPage() {
             Dashboard
           </h1>
           <p className="mt-2 text-zinc-400">
-            Connect your addon SavedVariables file, sign in, and push character
+            Sign in, connect your addon SavedVariables file, and push character
             progress to the global boards.
           </p>
         </div>

@@ -6,18 +6,106 @@
 local addonName, LA = ...
 
 LA.name = addonName
-LA.version = "0.3.0"
+LA.version = "0.4.0"
 
--- Defaults applied on first load / when keys are missing
+-- Defaults applied on first load / when keys are missing.
+-- `version` is owned by MigrateDB so a fresh default does not skip older steps.
 local defaults = {
-  version = 3,
+  version = 6,
   characters = {},
   shareEnabled = true, -- social-graph achievement sharing (opt-out)
   debugEnabled = false,
 }
 
+local function IsHardcoreActive()
+  if C_GameRules and C_GameRules.IsHardcoreActive then
+    local ok, result = pcall(C_GameRules.IsHardcoreActive)
+    if ok then
+      return result and true or false
+    end
+  end
+  return false
+end
+
+-- Live Unit* snapshot for website sync. Never infer these from achievements.
+local function ReadPlayerIdentity(levelOverride)
+  local name = UnitName("player")
+  local realm = GetRealmName()
+  local guid = UnitGUID("player")
+  local _, classToken = UnitClass("player")
+  local _, raceToken = UnitRace("player")
+  local faction = UnitFactionGroup("player")
+  local level = levelOverride
+  if type(level) ~= "number" or level < 1 then
+    level = UnitLevel("player")
+  end
+  if type(level) == "number" then
+    if level < 1 then
+      level = nil
+    elseif level > 60 then
+      level = 60
+    end
+  else
+    level = nil
+  end
+  return {
+    name = name,
+    realm = realm,
+    guid = guid,
+    class = classToken,
+    race = raceToken,
+    level = level,
+    faction = faction,
+  }
+end
+
+local function ApplyPlayerIdentity(char, info)
+  if type(char) ~= "table" then
+    return char
+  end
+  info = info or {}
+  local ident = ReadPlayerIdentity(info.level)
+
+  if ident.name then
+    char.name = ident.name
+  end
+  if ident.realm then
+    char.realm = ident.realm
+  end
+  if ident.class then
+    char.class = ident.class
+  end
+  if ident.race then
+    char.race = ident.race
+  end
+  if ident.level then
+    char.level = ident.level
+  end
+  if ident.faction then
+    char.faction = ident.faction
+  end
+  if ident.guid then
+    char.guid = ident.guid
+  elseif not char.guid and char.name and char.realm then
+    char.guid = char.name .. "-" .. char.realm
+  end
+
+  char.deaths = char.deaths or 0
+  if char.status ~= "Dead" then
+    char.status = "Alive"
+  end
+  if (char.deaths or 0) > 0 and IsHardcoreActive() then
+    char.status = "Dead"
+  end
+
+  char.lastUpdated = time()
+  return char
+end
+
 -- Clear MONEY progress that was stored as current wealth (v1), not looted total.
 -- v3: wipe progress for removed starter achievements so old IDs don't linger.
+-- v4: ensure web-sync character metadata fields exist on every row.
+-- v6: drop achievement-inferred identity; only live Unit* data is stored.
 local function MigrateDB(db)
   local ver = db.version or 1
   if ver < 2 then
@@ -62,6 +150,43 @@ local function MigrateDB(db)
     end
     db.version = 3
   end
+  if ver < 4 then
+    for key, char in pairs(db.characters or {}) do
+      if type(char) == "table" then
+        char.visitedZones = char.visitedZones or {}
+        char.visitedInstances = char.visitedInstances or {}
+        char.deaths = char.deaths or 0
+        char.status = char.status or "Alive"
+        -- Parse "Realm-Name" key when live Unit* data is not available yet
+        if not char.name or not char.realm then
+          local realm, name = tostring(key):match("^(.+)%-(.+)$")
+          char.realm = char.realm or realm or "Unknown"
+          char.name = char.name or name or "Unknown"
+        end
+        if (char.deaths or 0) > 0 and IsHardcoreActive() then
+          char.status = "Dead"
+        end
+      end
+    end
+    db.version = 4
+  end
+  if ver < 5 then
+    -- v5 used to infer class/level from achievements; that produced wrong levels.
+    db.version = 5
+  end
+  if ver < 6 then
+    for _, char in pairs(db.characters or {}) do
+      if type(char) == "table" then
+        char.level = nil
+        char.class = nil
+        char.race = nil
+        char.faction = nil
+        char.guid = nil
+        char.lastUpdated = nil
+      end
+    end
+    db.version = 6
+  end
 end
 
 local function CharKey()
@@ -72,6 +197,17 @@ local function CharKey()
   return (realm or "Unknown") .. "-" .. name
 end
 
+--- Persist identity fields used by the website upload/sync from live Unit* APIs.
+function LA:RefreshCharacterMeta(char, info)
+  if not char then
+    char = self:GetCharDB()
+    if not char then
+      return nil
+    end
+  end
+  return ApplyPlayerIdentity(char, info)
+end
+
 --- Return (and lazily create) the per-character progress table.
 function LA:GetCharDB()
   local key = CharKey()
@@ -80,19 +216,30 @@ function LA:GetCharDB()
   end
   local db = LaucobsAchievementsDB
   if not db.characters[key] then
+    local ident = ReadPlayerIdentity()
     db.characters[key] = {
       completed = {}, -- [achievementId] = { earnedOn = unixTime }
       progress = {},  -- [achievementId] = { [criteriaIndex] = number }
       visitedZones = {}, -- [zoneNameLower] = true
       visitedInstances = {}, -- [instanceNameLower] = true
       deaths = 0,
+      status = "Alive",
+      name = ident.name,
+      realm = ident.realm,
+      guid = ident.guid,
+      class = ident.class,
+      race = ident.race,
+      level = ident.level,
+      faction = ident.faction,
     }
   else
     local char = db.characters[key]
     char.visitedZones = char.visitedZones or {}
     char.visitedInstances = char.visitedInstances or {}
     char.deaths = char.deaths or 0
+    char.status = char.status or "Alive"
   end
+  ApplyPlayerIdentity(db.characters[key])
   return db.characters[key]
 end
 
@@ -271,6 +418,9 @@ end
 local eventFrame = CreateFrame("Frame")
 eventFrame:RegisterEvent("ADDON_LOADED")
 eventFrame:RegisterEvent("PLAYER_LOGIN")
+eventFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
+eventFrame:RegisterEvent("PLAYER_LOGOUT")
+eventFrame:RegisterEvent("PLAYER_LEVEL_UP")
 
 eventFrame:SetScript("OnEvent", function(_, event, arg1)
   if event == "ADDON_LOADED" and arg1 == addonName then
@@ -278,7 +428,7 @@ eventFrame:SetScript("OnEvent", function(_, event, arg1)
       LaucobsAchievementsDB = {}
     end
     for k, v in pairs(defaults) do
-      if LaucobsAchievementsDB[k] == nil then
+      if k ~= "version" and LaucobsAchievementsDB[k] == nil then
         if type(v) == "table" then
           LaucobsAchievementsDB[k] = {}
         else
@@ -317,8 +467,12 @@ eventFrame:SetScript("OnEvent", function(_, event, arg1)
     end
 
     DEFAULT_CHAT_FRAME:AddMessage(
-      "|cffffd100Laucob's Achievements|r loaded. Type |cff00ff00/la|r to open."
+      "|cffffd100Laucob's Achievements|r loaded. Type |cff00ff00/la|r to open, |cff00ff00/la web|r for website sync."
     )
+  elseif event == "PLAYER_LEVEL_UP" then
+    LA:RefreshCharacterMeta(nil, { level = arg1 })
+  elseif event == "PLAYER_ENTERING_WORLD" or event == "PLAYER_LOGOUT" then
+    LA:RefreshCharacterMeta()
   end
 end)
 
@@ -461,6 +615,20 @@ SlashCmdList["LAUCOBSACHIEVEMENTS"] = function(msg)
         "|cffffd100Laucob's Achievements|r: " .. (result or "inspect failed.")
       )
     end
+    return
+  end
+
+  if cmd == "web" then
+    LA:RefreshCharacterMeta()
+    DEFAULT_CHAT_FRAME:AddMessage(
+      "|cffffd100Laucob's Achievements|r: after logout, upload |cff00ff00LaucobsAchievements.lua|r from:"
+    )
+    DEFAULT_CHAT_FRAME:AddMessage(
+      "  |cffaaaaaaWTF\\Account\\<Account>\\SavedVariables\\|r"
+    )
+    DEFAULT_CHAT_FRAME:AddMessage(
+      "  Sync on the website dashboard to publish characters to the leaderboard."
+    )
     return
   end
 

@@ -224,6 +224,10 @@ end
 
 local function CheckClassCriteria(def, crit, critIndex)
   local className, classFile = UnitClass("player")
+  local char = LA:GetCharDB()
+  if char and classFile then
+    char.class = classFile
+  end
   local match = crit.match
   if not match then
     return
@@ -529,9 +533,20 @@ end
 local function OnEvent(_, event, ...)
   if event == "PLAYER_LEVEL_UP" then
     local newLevel = ...
+    local char = LA:GetCharDB()
+    if char and type(newLevel) == "number" then
+      if LA.RefreshCharacterMeta then
+        LA:RefreshCharacterMeta(char, { level = newLevel })
+      else
+        char.level = newLevel
+      end
+    end
     Tracker:Route("LEVEL", { level = newLevel })
     Tracker:Route("META")
   elseif event == "PLAYER_ENTERING_WORLD" then
+    if LA.RefreshCharacterMeta then
+      LA:RefreshCharacterMeta()
+    end
     Tracker:Route("LEVEL")
     Tracker:Route("IDENTITY")
     Tracker:Route("LOGIN")
@@ -559,6 +574,12 @@ local function OnEvent(_, event, ...)
     local char = LA:GetCharDB()
     if char then
       char.deaths = (char.deaths or 0) + 1
+      if IsHardcoreActive() then
+        char.status = "Dead"
+      end
+      if LA.RefreshCharacterMeta then
+        LA:RefreshCharacterMeta(char)
+      end
     end
     -- Deathless achievements become impossible; clear their progress
     if LA.Achievements then

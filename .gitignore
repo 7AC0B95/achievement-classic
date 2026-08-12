@@ -7,3 +7,13 @@ Thumbs.db
 .idea/
 *.swp
 *.swo
+
+# Web / Next.js
+web/node_modules/
+web/.next/
+web/.env.local
+web/.env*.local
+web/_extracted-achievements.json
+
+# OS / tooling
+.turbo/

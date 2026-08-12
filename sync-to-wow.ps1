@@ -1,7 +1,7 @@
 # Sync this repo into the Classic Era AddOns folder for in-game testing.
 $ErrorActionPreference = "Stop"
 
-$src = $PSScriptRoot
+$src = Join-Path $PSScriptRoot "LaucobsAchievements"
 $dst = "C:\Program Files (x86)\World of Warcraft\_classic_era_\Interface\AddOns\LaucobsAchievements"
 
 if (-not (Test-Path $dst)) {

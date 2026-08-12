@@ -1,6 +1,6 @@
 # Laucob's Achievements
 
-Retail-style achievement tracking for **World of Warcraft Classic Era / Hardcore**, plus a web platform to share progress on public leaderboards.
+Retail-style achievement tracking for **World of Warcraft Classic Era / Hardcore** (addon **v0.4.0**), plus a web platform to share progress on public leaderboards.
 
 **190+ achievements** across 10 categories: General, Quests, Combat, Exploration, Wealth, Professions, Dungeons, PvP, Hardcore, and Feats of Strength.
 
@@ -51,6 +51,8 @@ This repo is the **source of truth**. Sync to the game folder (PowerShell):
 
 Completed achievements can be browsed for other players who use the addon (guild, party, raid, or `/la inspect`). Sharing is on by default; turn off with `/la share off`.
 
+Open the **Players** sidebar to browse peers. The list is searchable by name, filterable by addon status (All / Addon / Pending / No addon), and grouped into Group/Raid, Guild, and Inspected.
+
 ---
 
 ## 2. Website sync (upload file)
@@ -65,19 +67,20 @@ One file contains every character on the account. The dashboard lists them so yo
 
 In-game tip: `/la web`.
 
+A sample file for parser testing lives at [`web/sample-LaucobsAchievements.lua`](web/sample-LaucobsAchievements.lua).
+
 ---
 
 ## 3. Supabase setup
 
-1. Create a project at [supabase.com](https://supabase.com).
-2. Open **SQL Editor** and run:
+1. Create a project at [supabase.com](https://supabase.com) (or reuse an existing one).
+2. Open **SQL Editor** and run, in order:
 
-[`supabase/migrations/20260812100000_laucobs_initial_schema.sql`](supabase/migrations/20260812100000_laucobs_initial_schema.sql)
-
-This creates profiles, characters, achievements, character_achievements, character_stats, RLS, and the 190-achievement catalog seed.
+   - [`supabase/migrations/20260812100000_laucobs_initial_schema.sql`](supabase/migrations/20260812100000_laucobs_initial_schema.sql) — tables, RLS, and the 190-achievement catalog (fresh projects)
+   - [`supabase/migrations/20260812220000_laucobs_catalog_and_stats.sql`](supabase/migrations/20260812220000_laucobs_catalog_and_stats.sql) — only if the database already had the older Achieve-mint schema
 
 3. Enable **Email** auth (magic link) under Authentication → Providers.
-4. Add redirect URL: `http://localhost:3000/auth/callback` (and your production URL).
+4. Add redirect URLs: `http://localhost:3000/auth/callback` and your production callback URL.
 
 ---
 
@@ -105,13 +108,13 @@ Without env vars the UI still loads; leaderboard and live activity stay empty un
 
 ### Regenerating the catalog from the addon
 
-When `LaucobsAchievements/Data.lua` changes:
+When [`LaucobsAchievements/Data.lua`](LaucobsAchievements/Data.lua) changes:
 
 ```bash
 node scripts/extract-achievements.mjs
 ```
 
-This refreshes `web/src/lib/achievements.ts` and prints a SQL seed fragment (re-run / update the migration seed as needed for fresh projects).
+This refreshes [`web/src/lib/achievements.ts`](web/src/lib/achievements.ts) and [`scripts/seed-achievements.sql`](scripts/seed-achievements.sql). Merge the seed into a new Supabase migration if the live catalog needs updating.
 
 ---
 

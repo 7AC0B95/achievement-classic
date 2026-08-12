@@ -1,6 +1,6 @@
 # Friend sync (Windows)
 
-Keeps **Laucob's Achievements** in your Classic Era AddOns folder up to date with GitHub. No Git install.
+Keeps **Laucob's Achievements** in your Classic Era AddOns folder up to date with GitHub. No Git install. Website sync still uses the SavedVariables file the addon writes on logout — this script only updates the addon itself.
 
 ## Quick start
 

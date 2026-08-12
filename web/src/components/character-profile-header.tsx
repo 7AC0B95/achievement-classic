@@ -87,10 +87,7 @@ export function CharacterProfileHeader({
           <StatChip label="Points" value={formatPoints(character.total_points)} accent />
           <StatChip label="Unlocks" value={String(character.achievement_count)} />
           {stats ? (
-            <>
-              <StatChip label="Zones" value={String(stats.zones_visited.length)} />
-              <StatChip label="Deaths" value={String(stats.deaths)} />
-            </>
+            <StatChip label="Zones" value={String(stats.zones_visited.length)} />
           ) : null}
         </div>
       </div>

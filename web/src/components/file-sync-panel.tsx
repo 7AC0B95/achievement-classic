@@ -216,12 +216,6 @@ export function FileSyncPanel() {
                         <span className="text-amber-400">
                           {formatPoints(pts)} pts
                         </span>
-                        {bundle.stats.deaths > 0 ? (
-                          <span className="text-zinc-500">
-                            {" "}
-                            · {bundle.stats.deaths} deaths
-                          </span>
-                        ) : null}
                       </p>
                       {!bundle.character.lastUpdated ||
                       bundle.character.class === "UNKNOWN" ? (

@@ -1,6 +1,6 @@
 import { getClassColor, getClassLabel } from "@/lib/class-colors";
 import type { CharacterRow, CharacterStatsRow } from "@/lib/types";
-import { cn, formatPoints } from "@/lib/utils";
+import { cn, formatDateTime, formatPoints } from "@/lib/utils";
 import { ArrowLeftRight } from "lucide-react";
 import Link from "next/link";
 
@@ -114,7 +114,7 @@ export function CharacterProfileHeader({
 
       {character.last_synced_at ? (
         <p className="relative mt-3 text-xs text-zinc-500">
-          Last synced {new Date(character.last_synced_at).toLocaleString()}
+          Last synced {formatDateTime(character.last_synced_at)}
         </p>
       ) : null}
     </header>

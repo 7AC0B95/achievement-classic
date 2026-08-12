@@ -1,7 +1,7 @@
 import { Lock } from "lucide-react";
 import { getAchievementIcon } from "@/lib/achievement-icons";
 import type { AchievementCategory } from "@/lib/types";
-import { cn, formatPoints } from "@/lib/utils";
+import { cn, formatDateTime, formatPoints } from "@/lib/utils";
 
 interface AchievementCardProps {
   id: string;
@@ -65,7 +65,7 @@ export function AchievementCard({
 
       {unlocked && unlockedAt ? (
         <p className="mt-4 text-xs text-emerald-400/90">
-          Unlocked {new Date(unlockedAt).toLocaleString()}
+          Unlocked {formatDateTime(unlockedAt)}
         </p>
       ) : null}
     </article>

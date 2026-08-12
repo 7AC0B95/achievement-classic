@@ -1,5 +1,5 @@
 import type { CharacterProfileAchievement } from "@/lib/types";
-import { cn, formatPoints, formatRelativeTime } from "@/lib/utils";
+import { cn, formatDateTime, formatPoints, formatRelativeTime } from "@/lib/utils";
 
 interface AchievementTimelineProps {
   items: CharacterProfileAchievement[];
@@ -61,7 +61,7 @@ export function AchievementTimeline({ items }: AchievementTimelineProps) {
                     {formatRelativeTime(item.unlocked_at!)}
                   </div>
                   <div className="mt-0.5 text-[11px] text-zinc-600">
-                    {new Date(item.unlocked_at!).toLocaleString()}
+                    {formatDateTime(item.unlocked_at!)}
                   </div>
                 </div>
               </div>

@@ -12,7 +12,7 @@ import { useWowSync } from "@/hooks/use-wow-sync";
 import { getAchievementById } from "@/lib/achievements";
 import { getClassColor, getClassLabel } from "@/lib/class-colors";
 import type { ParsedCharacterBundle } from "@/lib/types";
-import { cn, formatPoints } from "@/lib/utils";
+import { cn, formatDateTime, formatPoints } from "@/lib/utils";
 
 const EMPTY_CHARACTERS: ParsedCharacterBundle[] = [];
 
@@ -235,7 +235,7 @@ export function FileSyncPanel() {
 
       {sync.lastSyncedAt ? (
         <p className="mt-3 text-xs text-zinc-500">
-          Last synced {sync.lastSyncedAt.toLocaleString()}
+          Last synced {formatDateTime(sync.lastSyncedAt)}
         </p>
       ) : null}
     </section>

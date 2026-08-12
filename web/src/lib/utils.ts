@@ -6,6 +6,29 @@ export function formatPoints(points: number) {
   return new Intl.NumberFormat("en-US").format(points);
 }
 
+function asDate(isoOrDate: string | Date) {
+  return isoOrDate instanceof Date ? isoOrDate : new Date(isoOrDate);
+}
+
+export function formatDateTime(isoOrDate: string | Date) {
+  return new Intl.DateTimeFormat("en-US", {
+    dateStyle: "short",
+    timeStyle: "medium",
+  }).format(asDate(isoOrDate));
+}
+
+export function formatDate(isoOrDate: string | Date) {
+  return new Intl.DateTimeFormat("en-US", {
+    dateStyle: "short",
+  }).format(asDate(isoOrDate));
+}
+
+export function formatTime(isoOrDate: string | Date) {
+  return new Intl.DateTimeFormat("en-US", {
+    timeStyle: "medium",
+  }).format(asDate(isoOrDate));
+}
+
 export function formatRelativeTime(isoOrUnix: string | number) {
   const date =
     typeof isoOrUnix === "number"

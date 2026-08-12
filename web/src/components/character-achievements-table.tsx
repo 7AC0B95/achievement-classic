@@ -3,7 +3,7 @@
 import { ACHIEVEMENT_CATEGORIES } from "@/lib/achievement-filters";
 import { getAchievementIcon } from "@/lib/achievement-icons";
 import type { CharacterProfileAchievement } from "@/lib/types";
-import { cn, formatPoints } from "@/lib/utils";
+import { cn, formatDate, formatPoints, formatTime } from "@/lib/utils";
 import { Lock } from "lucide-react";
 import { createElement, Fragment } from "react";
 
@@ -118,9 +118,9 @@ function AchievementRow({ item }: { item: CharacterProfileAchievement }) {
       <td className="px-4 py-3 text-right text-zinc-400">
         {item.unlocked && item.unlocked_at ? (
           <>
-            <div>{new Date(item.unlocked_at).toLocaleDateString()}</div>
+            <div>{formatDate(item.unlocked_at)}</div>
             <div className="text-[11px] text-zinc-600">
-              {new Date(item.unlocked_at).toLocaleTimeString()}
+              {formatTime(item.unlocked_at)}
             </div>
           </>
         ) : (

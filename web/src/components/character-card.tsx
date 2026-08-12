@@ -8,7 +8,7 @@ import { updateCharacterStatus } from "@/actions/sync";
 import { setActiveCharacter } from "@/actions/character";
 import { getClassColor, getClassLabel } from "@/lib/class-colors";
 import type { CharacterRow, HardcoreStatus } from "@/lib/types";
-import { cn, formatPoints } from "@/lib/utils";
+import { cn, formatDateTime, formatPoints } from "@/lib/utils";
 
 interface CharacterCardProps {
   character: CharacterRow;
@@ -148,7 +148,7 @@ export function CharacterCard({ character, active = false }: CharacterCardProps)
           label="Last sync"
           value={
             character.last_synced_at
-              ? new Date(character.last_synced_at).toLocaleString()
+              ? formatDateTime(character.last_synced_at)
               : "Never"
           }
         />

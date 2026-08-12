@@ -3,13 +3,9 @@
 import { useMemo, useState } from "react";
 import { CharacterAchievementsPanel } from "@/components/character-achievements-panel";
 import { CharacterCategoryBoard } from "@/components/character-category-board";
-import { CharacterDeeds } from "@/components/character-deeds";
 import { CharacterProfileHeader } from "@/components/character-profile-header";
 import { CharacterTravelLog } from "@/components/character-travel-log";
-import {
-  buildCategoryProgress,
-  buildProfileHighlights,
-} from "@/lib/character-profile";
+import { buildCategoryProgress } from "@/lib/character-profile";
 import type {
   AchievementCategory,
   CharacterProfileAchievement,
@@ -34,10 +30,6 @@ export function CharacterProfile({
 }: CharacterProfileProps) {
   const [categories, setCategories] = useState<AchievementCategory[]>([]);
   const categoryProgress = useMemo(() => buildCategoryProgress(items), [items]);
-  const highlights = useMemo(
-    () => buildProfileHighlights(items, categoryProgress),
-    [items, categoryProgress],
-  );
   const catalogUnlocked = items.filter((item) => item.unlocked).length;
 
   const selectBoardCategory = (category: AchievementCategory) => {
@@ -64,7 +56,6 @@ export function CharacterProfile({
         selected={categories}
         onSelect={selectBoardCategory}
       />
-      <CharacterDeeds highlights={highlights} />
       <CharacterTravelLog stats={stats} />
       <CharacterAchievementsPanel
         items={items}

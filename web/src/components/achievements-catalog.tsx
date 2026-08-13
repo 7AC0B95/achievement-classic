@@ -195,7 +195,8 @@ export function AchievementsCatalog({
               Achievement catalog
             </h1>
             <p className="mt-2 max-w-2xl text-sm text-zinc-400">
-              Browse, search, and track custom achievements.
+              Browse, search, and track custom achievements from the in-game
+              addon.
               {characterLabel ? null : (
                 <> Sync a character on the dashboard to track unlocks.</>
               )}

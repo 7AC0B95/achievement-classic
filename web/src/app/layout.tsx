@@ -3,6 +3,7 @@ import { Cinzel, Source_Sans_3 } from "next/font/google";
 import { cookies } from "next/headers";
 import { Suspense } from "react";
 import { Navbar } from "@/components/navbar";
+import { SiteFooter } from "@/components/site-footer";
 import {
   ACTIVE_CHARACTER_COOKIE,
   resolveActiveCharacter,
@@ -25,7 +26,7 @@ const body = Source_Sans_3({
 export const metadata: Metadata = {
   title: "Laucob's Achievements | Classic Era / Hardcore",
   description:
-    "Retail-style achievement tracking for World of Warcraft Classic Era and Hardcore — sync your addon SavedVariables to public leaderboards.",
+    "Retail-style achievement tracking for World of Warcraft Classic Era and Hardcore — install the in-game addon, then sync SavedVariables to public leaderboards.",
 };
 
 async function Header() {
@@ -52,9 +53,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           <Header />
         </Suspense>
         <main className="flex-1">{children}</main>
-        <footer className="border-t border-zinc-800/80 py-8 text-center text-sm text-zinc-500">
-          Laucob&apos;s Achievements · WoW Classic Era / Hardcore · Addon Interface 11509
-        </footer>
+        <SiteFooter />
       </body>
     </html>
   );

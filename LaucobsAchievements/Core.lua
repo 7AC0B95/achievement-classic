@@ -467,7 +467,7 @@ eventFrame:SetScript("OnEvent", function(_, event, arg1)
     end
 
     DEFAULT_CHAT_FRAME:AddMessage(
-      "|cffffd100Laucob's Achievements|r loaded. Type |cff00ff00/la|r to open, |cff00ff00/la web|r for website sync."
+      "|cffffd100Laucob's Achievements|r loaded. Type |cff00ff00/la|r to open the in-game panel. |cff00ff00/la web|r shows how to publish progress on the website leaderboard."
     )
   elseif event == "PLAYER_LEVEL_UP" then
     LA:RefreshCharacterMeta(nil, { level = arg1 })
@@ -621,13 +621,16 @@ SlashCmdList["LAUCOBSACHIEVEMENTS"] = function(msg)
   if cmd == "web" then
     LA:RefreshCharacterMeta()
     DEFAULT_CHAT_FRAME:AddMessage(
-      "|cffffd100Laucob's Achievements|r: after logout, upload |cff00ff00LaucobsAchievements.lua|r from:"
+      "|cffffd100Laucob's Achievements|r pairs with the website: track in-game, then publish characters to public leaderboards."
+    )
+    DEFAULT_CHAT_FRAME:AddMessage(
+      "  Log out, then upload |cff00ff00LaucobsAchievements.lua|r from:"
     )
     DEFAULT_CHAT_FRAME:AddMessage(
       "  |cffaaaaaaWTF\\Account\\<Account>\\SavedVariables\\|r"
     )
     DEFAULT_CHAT_FRAME:AddMessage(
-      "  Sync on the website dashboard to publish characters to the leaderboard."
+      "  Open the website |cff00ff00Connect|r / dashboard page and sync selected characters."
     )
     return
   end

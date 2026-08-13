@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { AddonDownloadButton } from "@/components/addon-download-button";
 import { getClassColor, getClassLabel } from "@/lib/class-colors";
 import type { CharacterAchievementRow } from "@/lib/types";
 import { formatPoints, formatRelativeTime } from "@/lib/utils";
@@ -26,7 +27,13 @@ export function ActivityFeed({ items, title = "Live activity" }: ActivityFeedPro
 
       {items.length === 0 ? (
         <p className="rounded-lg border border-dashed border-zinc-800 bg-zinc-950/40 px-4 py-10 text-center text-sm text-zinc-500">
-          No unlocks yet. Sync a SavedVariables file from the dashboard to see live activity.
+          No unlocks yet.{" "}
+          <AddonDownloadButton variant="link">Download the addon</AddonDownloadButton>
+          , play, then{" "}
+          <Link href="/dashboard" className="font-medium text-amber-400 hover:text-amber-300">
+            sync SavedVariables
+          </Link>{" "}
+          from the dashboard.
         </p>
       ) : (
         <ul className="space-y-3">

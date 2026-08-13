@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { AddonDownloadButton } from "@/components/addon-download-button";
 import { getClassColor, getClassLabel } from "@/lib/class-colors";
 import type { CharacterRow } from "@/lib/types";
 import { cn, formatPoints } from "@/lib/utils";
@@ -11,7 +12,13 @@ export function LeaderboardTable({ rows }: LeaderboardTableProps) {
   if (!rows.length) {
     return (
       <div className="rounded-xl border border-zinc-800 bg-zinc-900/40 px-6 py-16 text-center text-zinc-400">
-        No characters match these filters yet. Sync your addon from the dashboard.
+        No characters match these filters yet.{" "}
+        <AddonDownloadButton variant="link">Download the addon</AddonDownloadButton>
+        , play, then{" "}
+        <Link href="/dashboard" className="font-medium text-amber-400 hover:text-amber-300">
+          connect
+        </Link>{" "}
+        to sync progress.
       </div>
     );
   }

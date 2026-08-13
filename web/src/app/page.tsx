@@ -1,7 +1,8 @@
 import Link from "next/link";
-import { ArrowRight, Shield, Swords, Upload } from "lucide-react";
+import { ArrowRight, Download, Shield, Swords, Upload } from "lucide-react";
 import type { ReactNode } from "react";
 import { ActivityFeed } from "@/components/activity-feed";
+import { AddonDownloadButton } from "@/components/addon-download-button";
 import { LeaderboardTable } from "@/components/leaderboard-table";
 import { fetchLeaderboard, fetchRecentActivity } from "@/lib/data";
 
@@ -24,20 +25,21 @@ export default async function HomePage() {
         <div className="relative mx-auto grid max-w-6xl gap-10 px-4 py-20 sm:px-6 lg:grid-cols-[1.2fr_0.8fr] lg:py-28">
           <div className="animate-rise">
             <p className="mb-4 text-sm uppercase tracking-[0.25em] text-amber-500/90">
-              Classic Era / Hardcore
+              Classic Era / Hardcore · Addon + website
             </p>
             <h1 className="font-[family-name:var(--font-display)] text-5xl leading-tight text-zinc-50 sm:text-6xl">
               <span className="gold-shimmer">Laucob&apos;s Achievements</span>
             </h1>
             <p className="mt-5 max-w-xl text-lg leading-relaxed text-zinc-400">
-              Track 190+ custom achievements in-game, then upload your
-              account-wide SavedVariables file to publish characters on global
-              leaderboards.
+              The in-game addon tracks 190+ custom achievements. This website
+              publishes them — upload your account-wide SavedVariables file and
+              climb the global leaderboards.
             </p>
             <div className="mt-8 flex flex-wrap gap-3">
+              <AddonDownloadButton>Download the addon</AddonDownloadButton>
               <Link
                 href="/dashboard"
-                className="inline-flex items-center gap-2 rounded-md bg-amber-500 px-5 py-3 text-sm font-semibold text-zinc-950 transition hover:bg-amber-400"
+                className="inline-flex items-center gap-2 rounded-md border border-zinc-700 bg-zinc-950/60 px-5 py-3 text-sm font-medium text-zinc-200 transition hover:border-amber-500/40"
               >
                 Connect character
                 <ArrowRight className="h-4 w-4" />
@@ -52,6 +54,11 @@ export default async function HomePage() {
           </div>
 
           <div className="animate-rise-delay-1 grid gap-3 self-end">
+            <Feature
+              icon={<Download className="h-4 w-4" />}
+              title="In-game addon"
+              body="Drop LaucobsAchievements into Interface\AddOns, /reload, then /la. Track feats while you play."
+            />
             <Feature
               icon={<Upload className="h-4 w-4" />}
               title="Account-wide Lua sync"
@@ -68,6 +75,26 @@ export default async function HomePage() {
               body="Filter by realm, class, and status — climb by points or dungeon clears."
             />
           </div>
+        </div>
+      </section>
+
+      <section className="border-b border-zinc-800/80">
+        <div className="mx-auto grid max-w-6xl gap-4 px-4 py-10 sm:grid-cols-3 sm:px-6">
+          <HowStep
+            n="1"
+            title="Install the addon"
+            body="Download the latest folder and paste it into your Classic Era AddOns directory."
+          />
+          <HowStep
+            n="2"
+            title="Play and unlock"
+            body="Open /la in-game. Achievements track as you quest, explore, and fight."
+          />
+          <HowStep
+            n="3"
+            title="Publish on the web"
+            body="Log out, then Connect on this site and upload SavedVariables to the leaderboard."
+          />
         </div>
       </section>
 
@@ -113,6 +140,28 @@ function Feature({
         <h3 className="text-sm font-semibold text-zinc-100">{title}</h3>
       </div>
       <p className="text-sm leading-relaxed text-zinc-400">{body}</p>
+    </div>
+  );
+}
+
+function HowStep({
+  n,
+  title,
+  body,
+}: {
+  n: string;
+  title: string;
+  body: string;
+}) {
+  return (
+    <div className="rounded-xl border border-zinc-800 bg-zinc-900/40 px-4 py-4">
+      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-amber-400/90">
+        {n}
+      </p>
+      <h3 className="mt-1 font-[family-name:var(--font-display)] text-lg text-zinc-100">
+        {title}
+      </h3>
+      <p className="mt-1 text-sm leading-relaxed text-zinc-400">{body}</p>
     </div>
   );
 }

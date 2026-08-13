@@ -73,7 +73,7 @@ export function Navbar({
           ) : null}
           <Link
             href="/dashboard"
-            className="ml-1 inline-flex items-center gap-2 rounded-md bg-amber-500 px-3.5 py-2 text-sm font-semibold text-zinc-950 transition hover:bg-amber-400"
+            className="inline-flex items-center gap-2 rounded-md bg-amber-500 px-3.5 py-2 text-sm font-semibold text-zinc-950 transition hover:bg-amber-400"
           >
             <Trophy className="h-4 w-4" />
             Connect
@@ -115,6 +115,14 @@ export function Navbar({
                 />
               </div>
             ) : null}
+            <Link
+              href="/dashboard"
+              onClick={() => setOpen(false)}
+              className="inline-flex items-center gap-2 rounded-md bg-amber-500 px-3 py-2 text-sm font-semibold text-zinc-950"
+            >
+              <Trophy className="h-4 w-4" />
+              Connect
+            </Link>
           </div>
         </div>
       ) : null}

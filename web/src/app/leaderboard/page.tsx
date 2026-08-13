@@ -33,8 +33,8 @@ export default async function LeaderboardPage({ searchParams }: LeaderboardPageP
           Leaderboard
         </h1>
         <p className="mt-2 text-zinc-400">
-          Filter by realm, class, Alive/Dead status, and sort by points, recent
-          activity, or boss kills.
+          Characters published from the in-game addon. Filter by realm, class,
+          Alive/Dead status, and sort by points, recent activity, or boss kills.
         </p>
       </div>
 

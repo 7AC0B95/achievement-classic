@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { AddonDownloadButton } from "@/components/addon-download-button";
 import { useWowSync } from "@/hooks/use-wow-sync";
 import { getAchievementById } from "@/lib/achievements";
 import { getClassColor, getClassLabel } from "@/lib/class-colors";
@@ -74,7 +75,7 @@ export function FileSyncPanel() {
             File connection
           </h2>
           <p className="mt-1 max-w-xl text-sm text-zinc-400">
-            After playing with the addon, sync progress by uploading{" "}
+            After playing with the in-game addon, sync progress by uploading{" "}
             <code className="rounded bg-zinc-950 px-1.5 py-0.5 text-amber-300">
               LaucobsAchievements.lua
             </code>
@@ -85,6 +86,11 @@ export function FileSyncPanel() {
             .
             <br />
             Log out first so the account-wide file includes every character.
+            Need the addon?{" "}
+            <AddonDownloadButton variant="link">
+              Download the latest folder
+            </AddonDownloadButton>
+            .
           </p>
         </div>
 

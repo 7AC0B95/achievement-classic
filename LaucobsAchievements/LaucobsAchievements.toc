@@ -1,6 +1,6 @@
 ## Interface: 11509
 ## Title: Laucob's Achievements
-## Notes: Retail-style achievement tracking for Classic Era / Hardcore. Share in-game with guild, party, and raid, or upload SavedVariables to the website.
+## Notes: In-game achievement tracking for Classic Era / Hardcore. Share with guild, party, and raid, or upload SavedVariables on the website to join public leaderboards.
 ## Author: Laucob
 ## Version: 0.4.0
 ## SavedVariables: LaucobsAchievementsDB

@@ -1,3 +1,4 @@
+import { AddonDownloadCard } from "@/components/addon-download-card";
 import { AuthPanel } from "@/components/auth-panel";
 import { CharacterCard } from "@/components/character-card";
 import { CharacterSelect } from "@/components/character-select";
@@ -6,6 +7,7 @@ import {
   ACTIVE_CHARACTER_COOKIE,
   resolveActiveCharacter,
 } from "@/lib/active-character";
+import { ADDON_DOWNLOAD_COLLAPSED_COOKIE } from "@/lib/addon";
 import { fetchUserCharacters } from "@/lib/data";
 import { cookies } from "next/headers";
 
@@ -16,6 +18,8 @@ export default async function DashboardPage() {
     characters,
     cookieStore.get(ACTIVE_CHARACTER_COOKIE)?.value,
   );
+  const addonDownloadOpen =
+    cookieStore.get(ADDON_DOWNLOAD_COLLAPSED_COOKIE)?.value !== "1";
   const others = characters.filter((character) => character.id !== selected?.id);
 
   return (
@@ -26,8 +30,8 @@ export default async function DashboardPage() {
             Dashboard
           </h1>
           <p className="mt-2 text-zinc-400">
-            Sign in, connect your addon SavedVariables file, and push character
-            progress to the global boards.
+            Install the in-game addon, sign in, upload your SavedVariables file,
+            and push character progress to the global boards.
           </p>
         </div>
         {characters.length > 0 ? (
@@ -41,6 +45,7 @@ export default async function DashboardPage() {
         ) : null}
       </div>
 
+      <AddonDownloadCard defaultOpen={addonDownloadOpen} />
       <AuthPanel />
       <FileSyncPanel />
 
@@ -52,9 +57,9 @@ export default async function DashboardPage() {
             No synced character yet
           </h2>
           <p className="mx-auto mt-2 max-w-lg text-sm text-zinc-500">
-            Install Laucob&apos;s Achievements, play until achievements unlock,
-            then log out so SavedVariables flush. Sign in above and upload the
-            account-wide file from the panel.
+            Download the addon above, play until achievements unlock, then log
+            out so SavedVariables flush. Sign in and upload the account-wide
+            file from the panel.
           </p>
           <div className="mx-auto mt-5 max-w-xl text-left">
             <p className="text-xs uppercase tracking-wider text-zinc-600">

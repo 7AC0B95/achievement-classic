@@ -24,7 +24,7 @@ const body = Source_Sans_3({
 });
 
 export const metadata: Metadata = {
-  title: "Classic Glory | Classic Era / Hardcore",
+  title: "Classic Glory | Classic Era Achievements",
   description:
     "Retail-style achievement tracking for World of Warcraft Classic Era and Hardcore — install the in-game addon, then sync SavedVariables to public leaderboards.",
 };

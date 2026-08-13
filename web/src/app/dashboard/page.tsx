@@ -8,18 +8,22 @@ import {
   resolveActiveCharacter,
 } from "@/lib/active-character";
 import { ADDON_DOWNLOAD_COLLAPSED_COOKIE, ADDON_SAVED_VARIABLES_FILE } from "@/lib/addon";
-import { fetchUserCharacters } from "@/lib/data";
+import { fetchUserCharacters, getCurrentUser } from "@/lib/data";
 import { cookies } from "next/headers";
 
 export default async function DashboardPage() {
-  const characters = await fetchUserCharacters();
-  const cookieStore = await cookies();
+  const [characters, cookieStore, user] = await Promise.all([
+    fetchUserCharacters(),
+    cookies(),
+    getCurrentUser(),
+  ]);
   const selected = resolveActiveCharacter(
     characters,
     cookieStore.get(ACTIVE_CHARACTER_COOKIE)?.value,
   );
-  const addonDownloadOpen =
-    cookieStore.get(ADDON_DOWNLOAD_COLLAPSED_COOKIE)?.value !== "1";
+  const addonDownloadOpen = user
+    ? false
+    : cookieStore.get(ADDON_DOWNLOAD_COLLAPSED_COOKIE)?.value !== "1";
   const others = characters.filter((character) => character.id !== selected?.id);
 
   return (

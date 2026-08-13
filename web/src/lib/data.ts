@@ -115,16 +115,26 @@ export async function fetchAchievements(): Promise<AchievementRow[]> {
   }
 }
 
-export const fetchUserCharacters = cache(async (): Promise<CharacterRow[]> => {
-  if (!isSupabaseEnvReady()) return [];
+export const getCurrentUser = cache(async () => {
+  if (!isSupabaseEnvReady()) return null;
 
   try {
     const supabase = await createClient();
     const {
       data: { user },
     } = await supabase.auth.getUser();
-    if (!user) return [];
+    return user;
+  } catch {
+    return null;
+  }
+});
 
+export const fetchUserCharacters = cache(async (): Promise<CharacterRow[]> => {
+  const user = await getCurrentUser();
+  if (!user) return [];
+
+  try {
+    const supabase = await createClient();
     const { data } = await supabase
       .from("characters")
       .select("*")

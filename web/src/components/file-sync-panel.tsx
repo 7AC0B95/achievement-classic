@@ -1,9 +1,10 @@
 "use client";
 
 import {
-  CheckCircle2,
-  Loader2,
   AlertTriangle,
+  CheckCircle2,
+  ChevronDown,
+  Loader2,
   Upload,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -23,6 +24,7 @@ export function FileSyncPanel() {
   const sync = useWowSync();
   const inputRef = useRef<HTMLInputElement>(null);
   const [selectedKeys, setSelectedKeys] = useState<string[]>([]);
+  const [listOpen, setListOpen] = useState(true);
 
   const busy =
     sync.status === "connecting" ||
@@ -159,9 +161,21 @@ export function FileSyncPanel() {
       {characters.length > 0 ? (
         <div className="mt-5 space-y-3">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <p className="text-xs uppercase tracking-wider text-zinc-500">
+            <button
+              type="button"
+              aria-expanded={listOpen}
+              aria-controls="characters-in-file-list"
+              onClick={() => setListOpen((open) => !open)}
+              className="flex items-center gap-1.5 text-xs uppercase tracking-wider text-zinc-500 transition hover:text-zinc-300"
+            >
+              <ChevronDown
+                className={cn(
+                  "h-3.5 w-3.5 transition",
+                  listOpen && "rotate-180",
+                )}
+              />
               Characters in file ({characters.length})
-            </p>
+            </button>
             <div className="flex gap-2 text-xs">
               <button
                 type="button"
@@ -180,65 +194,67 @@ export function FileSyncPanel() {
             </div>
           </div>
 
-          <ul className="space-y-2">
-            {characters.map((bundle) => {
-              const pts = bundle.completed.reduce((sum, entry) => {
-                const catalog = getAchievementById(entry.id)?.points ?? 0;
-                return sum + (entry.points ?? catalog);
-              }, 0);
-              const checked = selectedKeys.includes(bundle.key);
-              return (
-                <li key={bundle.key}>
-                  <label
-                    className={cn(
-                      "flex cursor-pointer items-start gap-3 rounded-lg border px-3 py-3 transition",
-                      checked
-                        ? "border-amber-500/40 bg-amber-500/5"
-                        : "border-zinc-800 bg-zinc-950/70 hover:border-zinc-700",
-                    )}
-                  >
-                    <input
-                      type="checkbox"
-                      className="mt-1"
-                      checked={checked}
-                      onChange={() => toggleKey(bundle.key)}
-                    />
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm">
-                        <span
-                          className="font-semibold"
-                          style={{
-                            color: getClassColor(bundle.character.class),
-                          }}
-                        >
-                          {bundle.character.name}
-                        </span>
-                        <span className="mt-0.5 block text-zinc-500 sm:mt-0 sm:inline">
-                          <span className="hidden sm:inline"> · </span>
-                          {getClassLabel(bundle.character.class)} ·{" "}
-                          {bundle.character.realm} · L{bundle.character.level} ·{" "}
-                          {bundle.character.status}
-                        </span>
-                      </p>
-                      <p className="mt-1 text-sm text-zinc-400">
-                        {bundle.completed.length} achievements ·{" "}
-                        <span className="text-amber-400">
-                          {formatPoints(pts)} pts
-                        </span>
-                      </p>
-                      {!bundle.character.lastUpdated ||
-                      bundle.character.class === "UNKNOWN" ? (
-                        <p className="mt-1 text-xs text-amber-300/80">
-                          Log into this character once so the addon can save
-                          class, race, and level.
+          {listOpen ? (
+            <ul id="characters-in-file-list" className="space-y-2">
+              {characters.map((bundle) => {
+                const pts = bundle.completed.reduce((sum, entry) => {
+                  const catalog = getAchievementById(entry.id)?.points ?? 0;
+                  return sum + (entry.points ?? catalog);
+                }, 0);
+                const checked = selectedKeys.includes(bundle.key);
+                return (
+                  <li key={bundle.key}>
+                    <label
+                      className={cn(
+                        "flex cursor-pointer items-start gap-3 rounded-lg border px-3 py-3 transition",
+                        checked
+                          ? "border-amber-500/40 bg-amber-500/5"
+                          : "border-zinc-800 bg-zinc-950/70 hover:border-zinc-700",
+                      )}
+                    >
+                      <input
+                        type="checkbox"
+                        className="mt-1"
+                        checked={checked}
+                        onChange={() => toggleKey(bundle.key)}
+                      />
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm">
+                          <span
+                            className="font-semibold"
+                            style={{
+                              color: getClassColor(bundle.character.class),
+                            }}
+                          >
+                            {bundle.character.name}
+                          </span>
+                          <span className="mt-0.5 block text-zinc-500 sm:mt-0 sm:inline">
+                            <span className="hidden sm:inline"> · </span>
+                            {getClassLabel(bundle.character.class)} ·{" "}
+                            {bundle.character.realm} · L{bundle.character.level} ·{" "}
+                            {bundle.character.status}
+                          </span>
                         </p>
-                      ) : null}
-                    </div>
-                  </label>
-                </li>
-              );
-            })}
-          </ul>
+                        <p className="mt-1 text-sm text-zinc-400">
+                          {bundle.completed.length} achievements ·{" "}
+                          <span className="text-amber-400">
+                            {formatPoints(pts)} pts
+                          </span>
+                        </p>
+                        {!bundle.character.lastUpdated ||
+                        bundle.character.class === "UNKNOWN" ? (
+                          <p className="mt-1 text-xs text-amber-300/80">
+                            Log into this character once so the addon can save
+                            class, race, and level.
+                          </p>
+                        ) : null}
+                      </div>
+                    </label>
+                  </li>
+                );
+              })}
+            </ul>
+          ) : null}
         </div>
       ) : null}
 

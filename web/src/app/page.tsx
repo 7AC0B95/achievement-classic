@@ -21,7 +21,7 @@ export default async function HomePage() {
               "radial-gradient(circle at 20% 20%, rgba(245,158,11,0.15), transparent 35%), radial-gradient(circle at 80% 30%, rgba(113,113,122,0.2), transparent 40%), linear-gradient(to bottom, transparent, #09090b)",
           }}
         />
-        <div className="relative mx-auto grid max-w-6xl gap-10 px-4 py-12 sm:px-6 sm:py-20 lg:grid-cols-[1.2fr_0.8fr] lg:py-28">
+        <div className="relative mx-auto grid max-w-6xl gap-10 px-4 py-10 sm:px-6 sm:py-16 lg:grid-cols-[1.2fr_0.8fr] lg:py-20">
           <div className="animate-rise">
             <p className="mb-4 text-xs uppercase tracking-[0.18em] text-amber-500/90 sm:text-sm sm:tracking-[0.25em]">
               Classic Era / Hardcore · Addon + website

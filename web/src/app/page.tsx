@@ -1,6 +1,5 @@
 import Link from "next/link";
-import { ArrowRight, Download, Shield, Swords, Upload } from "lucide-react";
-import type { ReactNode } from "react";
+import { ArrowRight } from "lucide-react";
 import { ActivityFeed } from "@/components/activity-feed";
 import { AddonDownloadButton } from "@/components/addon-download-button";
 import { LeaderboardTable } from "@/components/leaderboard-table";
@@ -54,47 +53,22 @@ export default async function HomePage() {
           </div>
 
           <div className="animate-rise-delay-1 grid gap-3 self-end">
-            <Feature
-              icon={<Download className="h-4 w-4" />}
-              title="In-game addon"
-              body="Drop ClassicGlory into Interface\AddOns, /reload, then /cg. Track feats while you play."
+            <HowStep
+              n="1"
+              title="Install the addon"
+              body="Download ClassicGlory, drop it into Interface\AddOns, then /reload."
             />
-            <Feature
-              icon={<Upload className="h-4 w-4" />}
-              title="Account-wide Lua sync"
-              body="Upload ClassicGlory.lua once to sync every character on the account."
+            <HowStep
+              n="2"
+              title="Play and unlock"
+              body="Open /cg in-game. Achievements track as you quest, explore, and fight — 190+ feats across leveling, dungeons, PvP, and Hardcore."
             />
-            <Feature
-              icon={<Swords className="h-4 w-4" />}
-              title="190+ custom feats"
-              body="Leveling, quests, combat, exploration, wealth, professions, dungeons, PvP, and Hardcore."
-            />
-            <Feature
-              icon={<Shield className="h-4 w-4" />}
-              title="Realm rivalries"
-              body="Filter by realm, class, and status — climb by points or dungeon clears."
+            <HowStep
+              n="3"
+              title="Publish on the web"
+              body="Log out, then Connect and upload ClassicGlory.lua once to sync every character to the leaderboard."
             />
           </div>
-        </div>
-      </section>
-
-      <section className="border-b border-zinc-800/80">
-        <div className="mx-auto grid max-w-6xl gap-4 px-4 py-10 md:grid-cols-3 sm:px-6">
-          <HowStep
-            n="1"
-            title="Install the addon"
-            body="Download the latest folder and paste it into your Classic Era AddOns directory."
-          />
-          <HowStep
-            n="2"
-            title="Play and unlock"
-            body="Open /cg in-game. Achievements track as you quest, explore, and fight."
-          />
-          <HowStep
-            n="3"
-            title="Publish on the web"
-            body="Log out, then Connect on this site and upload SavedVariables to the leaderboard."
-          />
         </div>
       </section>
 
@@ -120,26 +94,6 @@ export default async function HomePage() {
           <LeaderboardTable rows={leaders.slice(0, 8)} />
         </div>
       </section>
-    </div>
-  );
-}
-
-function Feature({
-  icon,
-  title,
-  body,
-}: {
-  icon: ReactNode;
-  title: string;
-  body: string;
-}) {
-  return (
-    <div className="rounded-xl border border-zinc-800 bg-zinc-900/50 p-4 transition hover:border-amber-500/35">
-      <div className="mb-2 flex items-center gap-2 text-amber-400">
-        {icon}
-        <h3 className="text-sm font-semibold text-zinc-100">{title}</h3>
-      </div>
-      <p className="text-sm leading-relaxed text-zinc-400">{body}</p>
     </div>
   );
 }

@@ -17,6 +17,7 @@ export const ADDON_SLASH_COMMAND = "/cg";
 export const ADDON_TOC_FILES = [
   "ClassicGlory.toc",
   "Core.lua",
+  "Seal.lua",
   "Data.lua",
   "Tracker.lua",
   "Alert.lua",

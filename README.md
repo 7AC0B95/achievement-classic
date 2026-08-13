@@ -1,6 +1,6 @@
 # Classic Glory
 
-Retail-style achievement tracking for **World of Warcraft Classic Era / Hardcore** (addon **v0.5.0**), plus a web platform to share progress on public leaderboards.
+Retail-style achievement tracking for **World of Warcraft Classic Era / Hardcore** (addon **v0.6.0**), plus a web platform to share progress on public leaderboards.
 
 **190+ achievements** across 10 categories: General, Quests, Combat, Exploration, Wealth, Professions, Dungeons, PvP, Hardcore, and Feats of Strength.
 
@@ -75,7 +75,9 @@ After playing, **log out** so WoW flushes SavedVariables. Upload this **account-
 World of Warcraft\_classic_era_\WTF\Account\<Account>\SavedVariables\ClassicGlory.lua
 ```
 
-One file contains every character on the account. The dashboard lists them so you can sync selected characters (or all). Older `LaucobsAchievements.lua` uploads still work.
+One file contains every character on the account. The dashboard lists them so you can sync selected characters (or all).
+
+Uploads must be written by addon **v0.6.0+** (tamper-evident seal). After updating, log in once and log out so every character on the account is sealed — unsigned or hand-edited files are rejected.
 
 In-game tip: `/cg web`.
 
@@ -90,6 +92,7 @@ A sample file for parser testing lives at [`web/sample-ClassicGlory.lua`](web/sa
 
    - [`supabase/migrations/20260812100000_laucobs_initial_schema.sql`](supabase/migrations/20260812100000_laucobs_initial_schema.sql) — tables, RLS, and the 190-achievement catalog (fresh projects)
    - [`supabase/migrations/20260812220000_laucobs_catalog_and_stats.sql`](supabase/migrations/20260812220000_laucobs_catalog_and_stats.sql) — only if the database already had the older Achieve-mint schema
+   - [`supabase/migrations/20260813220000_character_achievements_delete_policy.sql`](supabase/migrations/20260813220000_character_achievements_delete_policy.sql) — owners can delete leftover unlocks on reseal
 
 3. Enable **Email** auth (magic link) under Authentication → Providers.
 4. Add redirect URLs: `http://localhost:3000/auth/callback` and your production callback URL.
@@ -126,7 +129,7 @@ When [`ClassicGlory/Data.lua`](ClassicGlory/Data.lua) changes:
 node scripts/extract-achievements.mjs
 ```
 
-This refreshes [`web/src/lib/achievements.ts`](web/src/lib/achievements.ts) and [`scripts/seed-achievements.sql`](scripts/seed-achievements.sql). Merge the seed into a new Supabase migration if the live catalog needs updating.
+This refreshes [`web/src/lib/achievements.ts`](web/src/lib/achievements.ts), [`web/src/lib/achievement-rules.ts`](web/src/lib/achievement-rules.ts), and [`scripts/seed-achievements.sql`](scripts/seed-achievements.sql). Merge the seed into a new Supabase migration if the live catalog needs updating.
 
 ---
 

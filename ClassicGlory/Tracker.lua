@@ -464,7 +464,11 @@ local function RecordZoneVisit()
 
   local char = LA:GetCharDB()
   if char then
+    local added = not char.visitedZones[key]
     char.visitedZones[key] = true
+    if added and LA.Seal and LA.Seal.Write then
+      LA.Seal.Write(char)
+    end
   end
 
   Tracker:Route("ZONE", { zone = zone })
@@ -484,9 +488,14 @@ local function RecordInstanceVisit()
     return
   end
 
+  local instKey = name:lower()
   local char = LA:GetCharDB()
   if char then
-    char.visitedInstances[name:lower()] = true
+    local added = not char.visitedInstances[instKey]
+    char.visitedInstances[instKey] = true
+    if added and LA.Seal and LA.Seal.Write then
+      LA.Seal.Write(char)
+    end
   end
 
   Tracker:Route("INSTANCE", { name = name })

@@ -13,6 +13,7 @@ $files = @(
   "Alert.lua",
   "Core.lua",
   "Data.lua",
+  "Seal.lua",
   "Share.lua",
   "Tracker.lua",
   "UI.lua",

@@ -252,6 +252,8 @@ export function useWowSync() {
         character: bundle.character,
         completed: bundle.completed,
         stats: bundle.stats,
+        snapshot: bundle.snapshot,
+        seal: bundle.character.seal,
       });
     },
     [],

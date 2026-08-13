@@ -7,12 +7,12 @@ local addonName, LA = ...
 
 LA.name = addonName
 LA.displayName = "Classic Glory"
-LA.version = "0.5.0"
+LA.version = "0.6.0"
 
 -- Defaults applied on first load / when keys are missing.
 -- `version` is owned by MigrateDB so a fresh default does not skip older steps.
 local defaults = {
-  version = 6,
+  version = 7,
   characters = {},
   shareEnabled = true, -- social-graph achievement sharing (opt-out)
   debugEnabled = false,
@@ -107,6 +107,7 @@ end
 -- v3: wipe progress for removed starter achievements so old IDs don't linger.
 -- v4: ensure web-sync character metadata fields exist on every row.
 -- v6: drop achievement-inferred identity; only live Unit* data is stored.
+-- v7: tamper-evident seals (adopted on login; see Seal.lua).
 local function MigrateDB(db)
   local ver = db.version or 1
   if ver < 2 then
@@ -188,7 +189,15 @@ local function MigrateDB(db)
     end
     db.version = 6
   end
+  if ver < 7 then
+    -- Unsigned rows are sealed in Seal.AdoptUnsigned on PLAYER_LOGIN.
+    db.version = 7
+  end
 end
+
+-- First GetCharDB per character this session verifies SavedVariables ink
+-- before live Unit* identity is applied (so a level-up cannot false-wipe).
+local inkChecked = {}
 
 local function CharKey()
   local name, realm = UnitName("player"), GetRealmName()
@@ -206,7 +215,11 @@ function LA:RefreshCharacterMeta(char, info)
       return nil
     end
   end
-  return ApplyPlayerIdentity(char, info)
+  ApplyPlayerIdentity(char, info)
+  if self.Seal and self.Seal.Write then
+    self.Seal.Write(char)
+  end
+  return char
 end
 
 --- Return (and lazily create) the per-character progress table.
@@ -222,7 +235,7 @@ function LA:GetCharDB()
   if not db.characters[key] then
     local ident = ReadPlayerIdentity()
     db.characters[key] = {
-      completed = {}, -- [achievementId] = { earnedOn = unixTime }
+      completed = {}, -- [achievementId] = { earnedOn, lvl, ticket }
       progress = {},  -- [achievementId] = { [criteriaIndex] = number }
       visitedZones = {}, -- [zoneNameLower] = true
       visitedInstances = {}, -- [instanceNameLower] = true
@@ -243,8 +256,27 @@ function LA:GetCharDB()
     char.deaths = char.deaths or 0
     char.status = char.status or "Alive"
   end
-  ApplyPlayerIdentity(db.characters[key])
-  return db.characters[key]
+
+  local char = db.characters[key]
+  if not inkChecked[key] then
+    inkChecked[key] = true
+    if self.Seal and self.Seal.VerifyOrAdopt then
+      local status = self.Seal.VerifyOrAdopt(char)
+      if status == "wiped" then
+        DEFAULT_CHAT_FRAME:AddMessage(
+          "|cffff5555Classic Glory|r: SavedVariables were modified outside the game. Progress for this character was reset."
+        )
+      end
+    end
+    ApplyPlayerIdentity(char)
+    if self.Seal and self.Seal.Write then
+      self.Seal.Write(char)
+    end
+    return char
+  end
+
+  ApplyPlayerIdentity(char)
+  return char
 end
 
 --- True when every criteria has reached its target value.
@@ -308,6 +340,9 @@ function LA:SetProgress(achievementId, criteriaIndex, value)
     return false
   end
   char.progress[achievementId][criteriaIndex] = value
+  if self.Seal and self.Seal.Write then
+    self.Seal.Write(char)
+  end
   return true
 end
 
@@ -326,8 +361,17 @@ function LA:CompleteAchievement(achievementId)
     return false
   end
 
+  local earnedOn = time()
+  local lvl = tonumber(char.level) or 0
+  local guid = tostring(char.guid or "")
+  local ticket = ""
+  if self.Seal and self.Seal.Ticket then
+    ticket = self.Seal.Ticket(guid, achievementId, earnedOn, lvl)
+  end
   char.completed[achievementId] = {
-    earnedOn = time(),
+    earnedOn = earnedOn,
+    lvl = lvl,
+    ticket = ticket,
   }
 
   -- Ensure progress bars read as full once completed
@@ -339,6 +383,10 @@ function LA:CompleteAchievement(achievementId)
         char.progress[achievementId][i] = target
       end
     end
+  end
+
+  if self.Seal and self.Seal.Write then
+    self.Seal.Write(char)
   end
 
   if self.Alert and self.Alert.Show then
@@ -384,6 +432,10 @@ function LA:ResetAchievement(achievementId)
 
   char.completed[achievementId] = nil
   char.progress[achievementId] = nil
+
+  if self.Seal and self.Seal.Write then
+    self.Seal.Write(char)
+  end
 
   if self.Tracker and self.Tracker.ClearAchievementState then
     self.Tracker:ClearAchievementState(achievementId)
@@ -462,6 +514,9 @@ eventFrame:SetScript("OnEvent", function(_, event, arg1)
   elseif event == "PLAYER_LOGIN" then
     -- Ensure char row exists once the player unit is available
     LA:GetCharDB()
+    if LA.Seal and LA.Seal.AdoptUnsigned then
+      LA.Seal.AdoptUnsigned(LA.db)
+    end
 
     if LA.Tracker and LA.Tracker.Start then
       LA.Tracker:Start()
@@ -564,6 +619,9 @@ SlashCmdList["CLASSICGLORY"] = function(msg)
 
     wipe(char.completed)
     wipe(char.progress)
+    if LA.Seal and LA.Seal.Write then
+      LA.Seal.Write(char)
+    end
     if LA.Tracker and LA.Tracker.ClearAchievementState then
       LA.Tracker:ClearAchievementState()
     end

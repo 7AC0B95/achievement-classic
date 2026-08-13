@@ -37,6 +37,8 @@ while ((m = blockRe.exec(lua))) {
     category,
     points,
     icon,
+    hcOnly: /hcOnly\s*=\s*true/.test(body),
+    criteria: parseCriteriaList(body),
   });
 }
 
@@ -45,6 +47,54 @@ function unescapeLua(s) {
     .replace(/\\n/g, "\n")
     .replace(/\\"/g, '"')
     .replace(/\\\\/g, "\\");
+}
+
+function sliceBalanced(source, openBraceIndex) {
+  let depth = 0;
+  let inString = null;
+  for (let i = openBraceIndex; i < source.length; i += 1) {
+    const ch = source[i];
+    const prev = source[i - 1];
+    if (inString) {
+      if (ch === inString && prev !== "\\") inString = null;
+      continue;
+    }
+    if (ch === '"' || ch === "'") {
+      inString = ch;
+      continue;
+    }
+    if (ch === "{") depth += 1;
+    if (ch === "}") {
+      depth -= 1;
+      if (depth === 0) return source.slice(openBraceIndex, i + 1);
+    }
+  }
+  return source.slice(openBraceIndex);
+}
+
+function parseCriteriaList(body) {
+  const marker = body.search(/criteria\s*=\s*\{/);
+  if (marker < 0) return [];
+  const eq = body.indexOf("{", marker);
+  const table = sliceBalanced(body, eq);
+  const criteria = [];
+  const objRe = /\{([^{}]+)\}/g;
+  let om;
+  while ((om = objRe.exec(table))) {
+    const inner = om[1];
+    const type = (inner.match(/type\s*=\s*"([^"]+)"/) || [])[1];
+    if (!type) continue;
+    const value = Number((inner.match(/value\s*=\s*([\d.]+)/) || [])[1] || 1);
+    const match = (inner.match(/match\s*=\s*"((?:\\.|[^"])*)"/) || [])[1];
+    const thresholdRaw = inner.match(/threshold\s*=\s*([\d.]+)/);
+    const standing = (inner.match(/standing\s*=\s*"([^"]+)"/) || [])[1];
+    const crit = { type, value };
+    if (match) crit.match = unescapeLua(match);
+    if (thresholdRaw) crit.threshold = Number(thresholdRaw[1]);
+    if (standing) crit.standing = standing;
+    criteria.push(crit);
+  }
+  return criteria;
 }
 
 achievements.sort((a, b) => Number(a.id) - Number(b.id));
@@ -59,7 +109,7 @@ const dungeonIds = achievements
   .map((a) => a.id);
 
 const lines = [];
-lines.push(`import type { AchievementDefinition } from "@/lib/types";`);
+lines.push(`import type { AchievementDefinition } from "./types";`);
 lines.push("");
 lines.push(`/** Canonical catalog mirrored by the Lua addon + Supabase seed. */`);
 lines.push(`export const ACHIEVEMENT_CATALOG: AchievementDefinition[] = [`);
@@ -94,6 +144,35 @@ lines.push("");
 const tsPath = path.join(root, "web", "src", "lib", "achievements.ts");
 fs.writeFileSync(tsPath, lines.join("\n"));
 console.log(`Wrote ${tsPath}`);
+
+const ruleLines = [];
+ruleLines.push(`/** Criteria rules extracted from ClassicGlory/Data.lua. Do not edit by hand. */`);
+ruleLines.push("");
+ruleLines.push(`export type AchievementCriterionRule = {`);
+ruleLines.push(`  type: string;`);
+ruleLines.push(`  value: number;`);
+ruleLines.push(`  match?: string;`);
+ruleLines.push(`  threshold?: number;`);
+ruleLines.push(`  standing?: string;`);
+ruleLines.push(`};`);
+ruleLines.push("");
+ruleLines.push(`export type AchievementRule = {`);
+ruleLines.push(`  hcOnly?: boolean;`);
+ruleLines.push(`  criteria: AchievementCriterionRule[];`);
+ruleLines.push(`};`);
+ruleLines.push("");
+ruleLines.push(`export const ACHIEVEMENT_RULES: Record<string, AchievementRule> = {`);
+for (const a of achievements) {
+  const rule = { criteria: a.criteria };
+  if (a.hcOnly) rule.hcOnly = true;
+  ruleLines.push(`  ${JSON.stringify(a.id)}: ${JSON.stringify(rule)},`);
+}
+ruleLines.push(`};`);
+ruleLines.push("");
+
+const rulesPath = path.join(root, "web", "src", "lib", "achievement-rules.ts");
+fs.writeFileSync(rulesPath, ruleLines.join("\n"));
+console.log(`Wrote ${rulesPath}`);
 
 // Generate SQL seed fragment
 function sqlEscape(s) {

@@ -1,8 +1,8 @@
 -- Sample account-wide SavedVariables for parser / upload testing
--- (not produced by WoW; shape matches ClassicGloryDB after v4)
+-- (not produced by WoW; shape matches ClassicGloryDB after v7 seals)
 
 ClassicGloryDB = {
-  ["version"] = 4,
+  ["version"] = 7,
   ["shareEnabled"] = true,
   ["debugEnabled"] = false,
   ["characters"] = {
@@ -17,10 +17,23 @@ ClassicGloryDB = {
       ["status"] = "Alive",
       ["deaths"] = 0,
       ["lastUpdated"] = 1723000000,
+      ["seal"] = "v1:f2ad007ed3a87ed7",
       ["completed"] = {
-        [1001] = { ["earnedOn"] = 1722900000 },
-        [1002] = { ["earnedOn"] = 1722950000 },
-        [1003] = { ["earnedOn"] = 1722990000 },
+        [1001] = {
+          ["earnedOn"] = 1722900000,
+          ["lvl"] = 2,
+          ["ticket"] = "v1:f4864afb0330afb0",
+        },
+        [1002] = {
+          ["earnedOn"] = 1722950000,
+          ["lvl"] = 5,
+          ["ticket"] = "v1:b0a9b464bf541919",
+        },
+        [1003] = {
+          ["earnedOn"] = 1722990000,
+          ["lvl"] = 10,
+          ["ticket"] = "v1:1a2f01d5fe25fd2a",
+        },
       },
       ["progress"] = {},
       ["visitedZones"] = {
@@ -40,8 +53,13 @@ ClassicGloryDB = {
       ["status"] = "Dead",
       ["deaths"] = 1,
       ["lastUpdated"] = 1723000500,
+      ["seal"] = "v1:ea54ee459ae39f5e",
       ["completed"] = {
-        [1001] = { ["earnedOn"] = 1722800000 },
+        [1001] = {
+          ["earnedOn"] = 1722800000,
+          ["lvl"] = 2,
+          ["ticket"] = "v1:3feb9b104e95ffc5",
+        },
       },
       ["progress"] = {},
       ["visitedZones"] = {

@@ -1,10 +1,11 @@
+import type { SealSnapshot } from "./seal";
 import type {
   HardcoreStatus,
   ParsedCharacterBundle,
   ParsedCompletedAchievement,
   ParsedClassicGloryDB,
   ParsedStats,
-} from "@/lib/types";
+} from "./types";
 
 /**
  * Parses WoW SavedVariables Lua for ClassicGloryDB (account-wide) into typed JSON.
@@ -73,6 +74,7 @@ function parseCharacterRow(
     status,
     faction: raw.faction ? String(raw.faction) : undefined,
     lastUpdated: raw.lastUpdated ? Number(raw.lastUpdated) : undefined,
+    seal: raw.seal ? String(raw.seal) : undefined,
   };
 
   const completedRaw = (raw.completed ?? {}) as Record<string, unknown>;
@@ -89,11 +91,14 @@ function parseCharacterRow(
       continue;
     }
     const entry = value as Record<string, unknown>;
+    const earnedLevel = Number(entry.lvl ?? entry.earnedLevel);
     completed.push({
       id: String(entry.id ?? id),
       unlockedAt: Number(
         entry.earnedOn ?? entry.unlockedAt ?? entry.unlocked_at ?? Date.now() / 1000,
       ),
+      earnedLevel: Number.isFinite(earnedLevel) ? Math.floor(earnedLevel) : undefined,
+      ticket: entry.ticket ? String(entry.ticket) : undefined,
       extra: {},
     });
   }
@@ -102,18 +107,61 @@ function parseCharacterRow(
 
   const zonesVisited = mapTruthyKeys(raw.visitedZones);
   const visitedInstances = mapTruthyKeys(raw.visitedInstances);
+  const progress = parseProgress(raw.progress);
+
+  const parsedLevelRaw = Number(raw.level);
+  const snapshot: SealSnapshot = {
+    guid: raw.guid ? String(raw.guid) : "",
+    level:
+      Number.isFinite(parsedLevelRaw) && parsedLevelRaw >= 0
+        ? Math.floor(parsedLevelRaw)
+        : 0,
+    class: raw.class ? String(raw.class) : "",
+    race: raw.race ? String(raw.race) : "",
+    faction: raw.faction ? String(raw.faction) : "",
+    status,
+    deaths: Number(raw.deaths ?? 0) || 0,
+    completed: completed.map((c) => ({
+      id: c.id,
+      earnedOn: Math.floor(c.unlockedAt) || 0,
+      lvl: c.earnedLevel ?? 0,
+      ticket: c.ticket ?? "",
+    })),
+    visitedZones: zonesVisited,
+    visitedInstances,
+    progress,
+  };
 
   const stats: ParsedStats = {
     zonesVisited,
     deaths: Number(raw.deaths ?? 0),
+    visitedInstances,
+    progress,
     raw: {
-      progress: raw.progress ?? {},
+      progress,
       visitedInstances,
       faction: character.faction,
     },
   };
 
-  return { key, character, completed, stats };
+  return { key, character, completed, stats, snapshot };
+}
+
+function parseProgress(
+  raw: unknown,
+): Record<string, Record<string, number>> {
+  const out: Record<string, Record<string, number>> = {};
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return out;
+  for (const [id, row] of Object.entries(raw as Record<string, unknown>)) {
+    if (!row || typeof row !== "object" || Array.isArray(row)) continue;
+    const inner: Record<string, number> = {};
+    for (const [idx, val] of Object.entries(row as Record<string, unknown>)) {
+      const n = Number(val);
+      if (Number.isFinite(n)) inner[String(idx)] = n;
+    }
+    if (Object.keys(inner).length > 0) out[String(id)] = inner;
+  }
+  return out;
 }
 
 function splitCharKey(key: string): { realm?: string; name?: string } {

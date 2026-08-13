@@ -2,6 +2,7 @@
 
 import { getAchievementById } from "@/lib/achievements";
 import { createClient } from "@/lib/supabase/server";
+import { validateSyncPayload } from "@/lib/sync-validate";
 import type { SyncPayload } from "@/lib/types";
 
 export type SyncResult =
@@ -35,22 +36,35 @@ export async function syncCharacterFromAddon(
       };
     }
 
-    const { character, completed, stats } = payload;
-    if (!character.guid || !character.name || !character.realm) {
+    const { character, stats, snapshot, seal } = payload;
+    const inkError = validateSyncPayload({
+      ...payload,
+      seal: seal ?? character.seal,
+      snapshot,
+    });
+    if (inkError) {
+      return { ok: false, message: inkError };
+    }
+
+    const guid = snapshot.guid || character.guid;
+    if (!guid || !character.name || !character.realm) {
       return { ok: false, message: "Character GUID/name/realm missing from addon data." };
     }
 
-    const knownCompleted = completed.filter((entry) => getAchievementById(entry.id));
+    const knownCompleted = snapshot.completed.filter((entry) =>
+      getAchievementById(String(entry.id)),
+    );
 
     const totalPoints = knownCompleted.reduce((sum, entry) => {
-      const catalogPts = getAchievementById(entry.id)?.points ?? 0;
-      return sum + (entry.points ?? catalogPts);
+      const catalogPts = getAchievementById(String(entry.id))?.points ?? 0;
+      return sum + catalogPts;
     }, 0);
 
+    const liveClass = snapshot.class || character.class;
     const hasLiveIdentity =
       Boolean(character.lastUpdated) &&
-      Boolean(character.class) &&
-      character.class.toUpperCase() !== "UNKNOWN";
+      Boolean(liveClass) &&
+      liveClass.toUpperCase() !== "UNKNOWN";
 
     const fields: {
       user_id: string;
@@ -66,7 +80,7 @@ export async function syncCharacterFromAddon(
       level?: number;
     } = {
       user_id: user.id,
-      guid: character.guid,
+      guid,
       name: character.name,
       realm: character.realm,
       total_points: totalPoints,
@@ -75,15 +89,15 @@ export async function syncCharacterFromAddon(
     };
 
     if (hasLiveIdentity) {
-      fields.class = character.class;
-      fields.race = character.race ?? null;
-      fields.level = character.level;
+      fields.class = liveClass.toUpperCase();
+      fields.race = snapshot.race || character.race || null;
+      fields.level = snapshot.level || character.level;
     }
 
     const { data: byGuid, error: guidLookupError } = await supabase
       .from("characters")
       .select("id, status")
-      .eq("guid", character.guid)
+      .eq("guid", guid)
       .maybeSingle();
 
     if (guidLookupError) {
@@ -116,8 +130,9 @@ export async function syncCharacterFromAddon(
 
     // Dead from the web toggle (or a prior addon death) must not be resurrected
     // by a later lua sync that still says Alive.
-    if (existingStatus !== "Dead" || character.status === "Dead") {
-      fields.status = character.status;
+    const publishedStatus = snapshot.status === "Dead" ? "Dead" : character.status;
+    if (existingStatus !== "Dead" || publishedStatus === "Dead") {
+      fields.status = publishedStatus;
     }
 
     const characterQuery = existingId
@@ -136,13 +151,14 @@ export async function syncCharacterFromAddon(
     }
 
     const characterId = upserted.id as string;
+    const keepIds = knownCompleted.map((entry) => String(entry.id));
 
     if (knownCompleted.length > 0) {
       const rows = knownCompleted.map((entry) => ({
         character_id: characterId,
-        achievement_id: entry.id,
-        unlocked_at: new Date(entry.unlockedAt * 1000).toISOString(),
-        meta: entry.extra ?? {},
+        achievement_id: String(entry.id),
+        unlocked_at: new Date(entry.earnedOn * 1000).toISOString(),
+        meta: {},
       }));
 
       const { error: achError } = await supabase
@@ -154,11 +170,36 @@ export async function syncCharacterFromAddon(
       }
     }
 
+    const { data: existingUnlocks, error: existingUnlocksError } = await supabase
+      .from("character_achievements")
+      .select("achievement_id")
+      .eq("character_id", characterId);
+
+    if (existingUnlocksError) {
+      return { ok: false, message: existingUnlocksError.message };
+    }
+
+    const keep = new Set(keepIds);
+    const toDelete = (existingUnlocks ?? [])
+      .map((row) => String(row.achievement_id))
+      .filter((id) => !keep.has(id));
+
+    if (toDelete.length > 0) {
+      const { error: delError } = await supabase
+        .from("character_achievements")
+        .delete()
+        .eq("character_id", characterId)
+        .in("achievement_id", toDelete);
+      if (delError) {
+        return { ok: false, message: delError.message };
+      }
+    }
+
     const { error: statsError } = await supabase.from("character_stats").upsert(
       {
         character_id: characterId,
-        zones_visited: stats.zonesVisited,
-        deaths: stats.deaths,
+        zones_visited: snapshot.visitedZones,
+        deaths: snapshot.deaths,
         raw: stats.raw ?? stats,
       },
       { onConflict: "character_id" },

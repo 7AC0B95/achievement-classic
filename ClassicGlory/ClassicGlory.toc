@@ -2,10 +2,11 @@
 ## Title: Classic Glory
 ## Notes: In-game achievement tracking for Classic Era / Hardcore. Share with guild, party, and raid, or upload SavedVariables on the website to join public leaderboards.
 ## Author: Laucob
-## Version: 0.5.0
+## Version: 0.6.0
 ## SavedVariables: ClassicGloryDB
 
 Core.lua
+Seal.lua
 Data.lua
 Tracker.lua
 Alert.lua

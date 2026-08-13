@@ -1,3 +1,5 @@
+import type { SealSnapshot } from "./seal";
+
 export type HardcoreStatus = "Alive" | "Dead";
 
 export type AchievementCategory =
@@ -42,6 +44,7 @@ export interface ParsedCharacter {
   status: HardcoreStatus;
   faction?: string;
   lastUpdated?: number;
+  seal?: string;
 }
 
 export interface ParsedCompletedAchievement {
@@ -50,12 +53,16 @@ export interface ParsedCompletedAchievement {
   points?: number;
   category?: string;
   unlockedAt: number;
+  earnedLevel?: number;
+  ticket?: string;
   extra?: Record<string, unknown>;
 }
 
 export interface ParsedStats {
   zonesVisited: string[];
   deaths: number;
+  visitedInstances?: string[];
+  progress?: Record<string, Record<string, number>>;
   raw?: Record<string, unknown>;
 }
 
@@ -64,6 +71,7 @@ export interface ParsedCharacterBundle {
   character: ParsedCharacter;
   completed: ParsedCompletedAchievement[];
   stats: ParsedStats;
+  snapshot: SealSnapshot;
 }
 
 export interface ParsedClassicGloryDB {
@@ -133,4 +141,6 @@ export interface SyncPayload {
   character: ParsedCharacter;
   completed: ParsedCompletedAchievement[];
   stats: ParsedStats;
+  snapshot: SealSnapshot;
+  seal?: string;
 }

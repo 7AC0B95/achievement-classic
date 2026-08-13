@@ -1,4 +1,4 @@
-import type { AchievementDefinition } from "@/lib/types";
+import type { AchievementDefinition } from "./types";
 
 /** Canonical catalog mirrored by the Lua addon + Supabase seed. */
 export const ACHIEVEMENT_CATALOG: AchievementDefinition[] = [

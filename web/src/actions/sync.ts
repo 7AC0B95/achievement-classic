@@ -57,7 +57,7 @@ export async function syncCharacterFromAddon(
       guid: string;
       name: string;
       realm: string;
-      status: "Alive" | "Dead";
+      status?: "Alive" | "Dead";
       total_points: number;
       achievement_count: number;
       last_synced_at: string;
@@ -69,7 +69,6 @@ export async function syncCharacterFromAddon(
       guid: character.guid,
       name: character.name,
       realm: character.realm,
-      status: character.status,
       total_points: totalPoints,
       achievement_count: knownCompleted.length,
       last_synced_at: new Date().toISOString(),
@@ -83,7 +82,7 @@ export async function syncCharacterFromAddon(
 
     const { data: byGuid, error: guidLookupError } = await supabase
       .from("characters")
-      .select("id")
+      .select("id, status")
       .eq("guid", character.guid)
       .maybeSingle();
 
@@ -92,11 +91,12 @@ export async function syncCharacterFromAddon(
     }
 
     let existingId = byGuid?.id as string | undefined;
+    let existingStatus = byGuid?.status as "Alive" | "Dead" | undefined;
 
     if (!existingId) {
       const { data: byName, error: nameLookupError } = await supabase
         .from("characters")
-        .select("id")
+        .select("id, status")
         .eq("name", character.name)
         .eq("realm", character.realm)
         .maybeSingle();
@@ -105,12 +105,19 @@ export async function syncCharacterFromAddon(
         return { ok: false, message: nameLookupError.message };
       }
       existingId = byName?.id as string | undefined;
+      existingStatus = byName?.status as "Alive" | "Dead" | undefined;
     }
 
     if (!existingId) {
       fields.class = fields.class ?? "UNKNOWN";
       fields.level = fields.level ?? 1;
       fields.race = fields.race ?? character.race ?? null;
+    }
+
+    // Dead from the web toggle (or a prior addon death) must not be resurrected
+    // by a later lua sync that still says Alive.
+    if (existingStatus !== "Dead" || character.status === "Dead") {
+      fields.status = character.status;
     }
 
     const characterQuery = existingId

@@ -6,7 +6,11 @@ import {
   ACTIVE_CHARACTER_COOKIE,
   resolveActiveCharacter,
 } from "@/lib/active-character";
-import { ADDON_DOWNLOAD_COLLAPSED_COOKIE, ADDON_SAVED_VARIABLES_FILE } from "@/lib/addon";
+import {
+  ADDON_DOWNLOAD_COLLAPSED_COOKIE,
+  ADDON_SAVED_VARIABLES_FILE,
+  FILE_SYNC_LIST_COLLAPSED_COOKIE,
+} from "@/lib/addon";
 import { fetchUserCharacters, getCurrentUser } from "@/lib/data";
 import { cookies } from "next/headers";
 
@@ -23,6 +27,8 @@ export default async function DashboardPage() {
   const addonDownloadOpen = user
     ? false
     : cookieStore.get(ADDON_DOWNLOAD_COLLAPSED_COOKIE)?.value !== "1";
+  const fileSyncListOpen =
+    cookieStore.get(FILE_SYNC_LIST_COLLAPSED_COOKIE)?.value !== "1";
 
   return (
     <div className="mx-auto max-w-6xl space-y-6 px-4 py-6 sm:px-6 sm:py-10">
@@ -38,7 +44,7 @@ export default async function DashboardPage() {
 
       <AddonDownloadCard defaultOpen={addonDownloadOpen} />
       <AuthPanel />
-      <FileSyncPanel />
+      <FileSyncPanel defaultOpen={fileSyncListOpen} />
 
       {characters.length > 0 ? (
         <SyncedCharactersList

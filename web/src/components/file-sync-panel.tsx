@@ -12,19 +12,43 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { AddonDownloadButton } from "@/components/addon-download-button";
 import { useWowSync } from "@/hooks/use-wow-sync";
 import { getAchievementById } from "@/lib/achievements";
-import { ADDON_SAVED_VARIABLES_FILE } from "@/lib/addon";
+import {
+  ADDON_SAVED_VARIABLES_FILE,
+  FILE_SYNC_LIST_COLLAPSED_COOKIE,
+} from "@/lib/addon";
 import { getClassColor, getClassLabel } from "@/lib/class-colors";
 import type { ParsedCharacterBundle } from "@/lib/types";
 import { cn, formatDateTime, formatPoints } from "@/lib/utils";
 
 const EMPTY_CHARACTERS: ParsedCharacterBundle[] = [];
+const COOKIE_MAX_AGE = 60 * 60 * 24 * 365;
 
-export function FileSyncPanel() {
+function persistListOpen(open: boolean) {
+  try {
+    const collapsed = open ? "0" : "1";
+    const secure = window.location.protocol === "https:" ? "; Secure" : "";
+    document.cookie = `${FILE_SYNC_LIST_COLLAPSED_COOKIE}=${collapsed}; Path=/; Max-Age=${COOKIE_MAX_AGE}; SameSite=Lax${secure}`;
+  } catch {
+    // Private mode / blocked cookies
+  }
+}
+
+export function FileSyncPanel({
+  defaultOpen = true,
+}: {
+  defaultOpen?: boolean;
+}) {
   const router = useRouter();
   const sync = useWowSync();
   const inputRef = useRef<HTMLInputElement>(null);
   const [selectedKeys, setSelectedKeys] = useState<string[]>([]);
-  const [listOpen, setListOpen] = useState(true);
+  const [listOpen, setListOpen] = useState(defaultOpen);
+
+  const toggleList = () => {
+    const next = !listOpen;
+    setListOpen(next);
+    persistListOpen(next);
+  };
 
   const busy =
     sync.status === "connecting" ||
@@ -165,7 +189,7 @@ export function FileSyncPanel() {
               type="button"
               aria-expanded={listOpen}
               aria-controls="characters-in-file-list"
-              onClick={() => setListOpen((open) => !open)}
+              onClick={toggleList}
               className="flex items-center gap-1.5 text-xs uppercase tracking-wider text-zinc-500 transition hover:text-zinc-300"
             >
               <ChevronDown

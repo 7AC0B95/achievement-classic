@@ -1,6 +1,8 @@
 export const ADDON_DISPLAY_NAME = "Classic Glory";
 export const ADDON_DOWNLOAD_PATH = "/api/addon";
 export const ADDON_DOWNLOAD_COLLAPSED_COOKIE = "classic_glory_addon_download_collapsed";
+export const FILE_SYNC_LIST_COLLAPSED_COOKIE =
+  "classic_glory_file_sync_list_collapsed";
 export const ADDON_FOLDER_NAME = "ClassicGlory";
 export const ADDON_GITHUB_URL =
   "https://github.com/7AC0B95/achievement-classic/tree/main/ClassicGlory";

@@ -10,14 +10,18 @@ LA.Share = Share
 
 -- Keep the historical prefix so peers on older builds still share.
 local PREFIX = "LAACH"
-local PROTOCOL_VER = 1
+local PROTOCOL_VER = 1 -- wire format; bump only when HELLO/sync layout breaks
 local PEER_TTL = 600 -- seconds; drop silent peers after ~10 minutes
 local INSPECT_TIMEOUT = 8 -- seconds to wait for a valid inspect reply
 local SEND_GAP = 0.35 -- throttle between outbound addon messages
 local MAX_MSG = 240 -- stay under 255 with headroom
+local UPDATE_URL = "https://github.com/7AC0B95/achievement-classic"
 
-Share.peers = {} -- [fullName] = { name, realm, points, count, completed, lastSeen, version, syncing, hasAddon, pending, viaGroup, viaGuild, viaInspect }
+Share.peers = {} -- [fullName] = { name, realm, points, count, completed, lastSeen, version, protocol, syncing, hasAddon, pending, viaGroup, viaGuild, viaInspect }
 Share.viewing = nil -- fullName of peer being inspected, or nil for self
+
+local outdatedWarned = false
+local pendingOutdated -- { version = "0.5.0" } deferred until out of combat
 
 local frame = CreateFrame("Frame")
 local sendQueue = {}
@@ -69,6 +73,115 @@ local function IsSharingEnabled()
     return true
   end
   return db.shareEnabled and true or false
+end
+
+local function AddonVersion()
+  local meta
+  if C_AddOns and C_AddOns.GetAddOnMetadata then
+    meta = C_AddOns.GetAddOnMetadata(addonName, "Version")
+  elseif GetAddOnMetadata then
+    meta = GetAddOnMetadata(addonName, "Version")
+  end
+  if type(meta) == "string" and meta ~= "" then
+    return meta
+  end
+  return LA.version or "0.0.0"
+end
+
+-- HELLO field: letters, digits, dots, dash, underscore, plus. No pipes.
+local function SanitizeAddonVersion(s)
+  if type(s) ~= "string" then
+    return nil
+  end
+  s = s:match("^%s*(.-)%s*$") or s
+  if s == "" then
+    return nil
+  end
+  s = s:gsub("[^%w%.%-+_]", "")
+  if s == "" then
+    return nil
+  end
+  if #s > 32 then
+    s = s:sub(1, 32)
+  end
+  return s
+end
+
+local function ParseSemver(s)
+  s = SanitizeAddonVersion(s)
+  if not s then
+    return nil
+  end
+  local a, b, c = s:match("^(%d+)%.(%d+)%.(%d+)")
+  if not a then
+    a, b = s:match("^(%d+)%.(%d+)")
+    c = "0"
+  end
+  if not a then
+    a = s:match("^(%d+)")
+    b, c = "0", "0"
+  end
+  if not a then
+    return nil
+  end
+  return tonumber(a), tonumber(b) or 0, tonumber(c) or 0
+end
+
+local function IsNewerVersion(theirs, ours)
+  local ta, tb, tc = ParseSemver(theirs)
+  local oa, ob, oc = ParseSemver(ours)
+  if not ta or not oa then
+    return false
+  end
+  if ta ~= oa then
+    return ta > oa
+  end
+  if tb ~= ob then
+    return tb > ob
+  end
+  return tc > oc
+end
+
+local function PrintOutdated(theirs)
+  if outdatedWarned then
+    return
+  end
+  outdatedWarned = true
+  pendingOutdated = nil
+  local ours = AddonVersion()
+  DEFAULT_CHAT_FRAME:AddMessage(
+    "|cffffd100Classic Glory|r: you are on |cffff5555"
+      .. ours
+      .. "|r; a nearby player is on |cff00ff00"
+      .. theirs
+      .. "|r."
+  )
+  DEFAULT_CHAT_FRAME:AddMessage(
+    "  Update from GitHub or the friend-sync watcher, then |cff00ff00/reload|r."
+  )
+  DEFAULT_CHAT_FRAME:AddMessage("  |cffaaaaaa" .. UPDATE_URL .. "|r")
+end
+
+local function MaybeWarnOutdated(addonVer)
+  if outdatedWarned or not addonVer then
+    return
+  end
+  if not IsNewerVersion(addonVer, AddonVersion()) then
+    return
+  end
+  if UnitAffectingCombat and UnitAffectingCombat("player") then
+    if not pendingOutdated or IsNewerVersion(addonVer, pendingOutdated.version) then
+      pendingOutdated = { version = addonVer }
+    end
+    return
+  end
+  PrintOutdated(addonVer)
+end
+
+local function FlushPendingOutdated()
+  if pendingOutdated and pendingOutdated.version then
+    PrintOutdated(pendingOutdated.version)
+  end
 end
 
 local function CountCompleted()
@@ -127,7 +240,8 @@ local function EnsurePeer(fullName)
       count = 0,
       completed = {},
       lastSeen = time(),
-      version = PROTOCOL_VER,
+      version = nil, -- user-facing semver from HELLO; nil until a new-format peer answers
+      protocol = PROTOCOL_VER,
       syncing = false,
       syncBuf = {},
       hasAddon = false,
@@ -325,7 +439,14 @@ end
 local function BuildHello()
   local points = LA:GetEarnedPoints() or 0
   local count = CountCompleted()
-  return string.format("H|%d|%d|%d", PROTOCOL_VER, points, count)
+  -- H|protocol|points|count|addonVersion  (addonVersion omitted by older clients)
+  return string.format(
+    "H|%d|%d|%d|%s",
+    PROTOCOL_VER,
+    points,
+    count,
+    SanitizeAddonVersion(AddonVersion()) or "0.0.0"
+  )
 end
 
 local function SendHello(force)
@@ -389,14 +510,14 @@ end
 ---------------------------------------------------------------------------
 
 local function HandleHello(sender, parts, channel)
-  -- Require a well-formed HELLO: H|ver|points|count
-  local ver = tonumber(parts[2])
+  -- HELLO: H|protocol|points|count[|addonVersion]
+  local protocol = tonumber(parts[2])
   local points = tonumber(parts[3])
   local count = tonumber(parts[4])
-  if ver == nil or points == nil or count == nil then
+  if protocol == nil or points == nil or count == nil then
     return
   end
-  if ver > PROTOCOL_VER + 5 then
+  if protocol > PROTOCOL_VER + 5 then
     -- Far-future protocol; still track presence lightly
   end
   local peer = EnsurePeer(sender)
@@ -405,7 +526,12 @@ local function HandleHello(sender, parts, channel)
   end
   ConfirmPeerAddon(peer)
   MarkSourceFromChannel(peer, channel)
-  peer.version = ver
+  peer.protocol = protocol
+  local addonVer = SanitizeAddonVersion(parts[5])
+  if addonVer then
+    peer.version = addonVer
+    MaybeWarnOutdated(addonVer)
+  end
   peer.points = points
   peer.count = count
   NotifyUI()
@@ -559,6 +685,8 @@ function Share:GetPeerList()
       count = peer.count or 0,
       syncing = peer.syncing,
       lastSeen = peer.lastSeen,
+      version = peer.version,
+      protocol = peer.protocol,
       hasAddon = peer.hasAddon and true or false,
       pending = peer.pending and true or false,
       source = ClassifyPeer(peer, key),
@@ -700,6 +828,7 @@ function Share:Start()
   frame:RegisterEvent("GROUP_ROSTER_UPDATE")
   frame:RegisterEvent("PLAYER_GUILD_UPDATE")
   frame:RegisterEvent("PLAYER_ENTERING_WORLD")
+  frame:RegisterEvent("PLAYER_REGEN_ENABLED")
 
   frame:SetScript("OnEvent", function(_, event, ...)
     if event == "CHAT_MSG_ADDON" then
@@ -713,6 +842,8 @@ function Share:Start()
       SendHello(false)
     elseif event == "PLAYER_ENTERING_WORLD" then
       SendHello(true)
+    elseif event == "PLAYER_REGEN_ENABLED" then
+      FlushPendingOutdated()
     end
   end)
 

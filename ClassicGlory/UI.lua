@@ -1107,8 +1107,11 @@ local function PopulatePlayers()
       Color(card.name, "gold")
       card.detail:SetTextColor(0.75, 0.70, 0.55, 1)
       local syncNote = peer.syncing and " (syncing…)" or ""
+      local verNote = (type(peer.version) == "string" and peer.version ~= "")
+        and ("  ·  v" .. peer.version)
+        or ""
       card.detail:SetText(
-        (peer.points or 0) .. " points  ·  " .. (peer.count or 0) .. " earned" .. syncNote
+        (peer.points or 0) .. " points  ·  " .. (peer.count or 0) .. " earned" .. verNote .. syncNote
       )
       card:SetBackdropBorderColor(unpack(C.borderDim))
     elseif peer.pending then

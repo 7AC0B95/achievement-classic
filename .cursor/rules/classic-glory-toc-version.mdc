@@ -1,0 +1,19 @@
+---
+description: Bump Classic Glory .toc Version on important addon changes
+alwaysApply: true
+---
+
+# Classic Glory version bump
+
+When an addon change is something players should update for, bump the version in the same change. Do not leave `## Version` stale.
+
+**Bump (same commit / same task):**
+- `ClassicGlory/ClassicGlory.toc` — `## Version:`
+- `ClassicGlory/Core.lua` — `LA.version` (must match the .toc)
+- Root `README.md` if it cites the addon version
+
+**What counts as important:** protocol/HELLO/share behavior, tracking or unlock logic, player-facing UI, load-breaking bugfixes, anything that should trigger the in-game outdated warning.
+
+**Do not bump for:** comments, docs-only, web/supabase-only, or the version-string edit itself.
+
+**Semver (`0.x.y`):** patch for fixes; minor for features. Do not bump `PROTOCOL_VER` in `Share.lua` unless the wire layout actually breaks. The .toc version is what peers compare.

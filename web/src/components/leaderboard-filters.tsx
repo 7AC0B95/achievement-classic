@@ -81,7 +81,7 @@ function FilterSelect({
       <select
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="mt-1.5 w-full rounded-md border border-zinc-700 bg-zinc-950 px-3 py-2.5 text-sm normal-case tracking-normal text-zinc-100 outline-none focus:border-amber-500/50"
+        className="mt-1.5 w-full max-w-full rounded-md border border-zinc-700 bg-zinc-950 px-3 py-2.5 text-base normal-case tracking-normal text-zinc-100 outline-none focus:border-amber-500/50 md:text-sm"
       >
         {options.map((opt) => (
           <option key={opt.value || "all"} value={opt.value}>

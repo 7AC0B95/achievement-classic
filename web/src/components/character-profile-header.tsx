@@ -29,7 +29,7 @@ export function CharacterProfileHeader({
 
   return (
     <header
-      className="relative overflow-hidden rounded-xl border border-zinc-800 bg-zinc-900/60 p-6 sm:p-8"
+      className="relative overflow-hidden rounded-xl border border-zinc-800 bg-zinc-900/60 p-4 sm:p-8"
       style={{ boxShadow: `inset 4px 0 0 ${color}` }}
     >
       <div
@@ -45,7 +45,7 @@ export function CharacterProfileHeader({
             Character profile
           </p>
           <h1
-            className="mt-2 font-[family-name:var(--font-display)] text-4xl sm:text-5xl"
+            className="mt-2 break-words font-[family-name:var(--font-display)] text-3xl sm:text-4xl lg:text-5xl"
             style={{ color }}
           >
             {character.name}
@@ -91,7 +91,7 @@ export function CharacterProfileHeader({
           </div>
         </div>
 
-        <div className="grid min-w-[240px] grid-cols-2 gap-3 sm:grid-cols-3">
+        <div className="grid w-full min-w-0 grid-cols-2 gap-3 sm:min-w-[240px] sm:w-auto sm:grid-cols-3">
           <StatChip label="Points" value={formatPoints(character.total_points)} accent />
           <StatChip label="Unlocks" value={String(character.achievement_count)} />
           <StatChip

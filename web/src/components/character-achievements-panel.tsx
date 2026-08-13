@@ -64,10 +64,10 @@ export function CharacterAchievementsPanel({
   };
 
   return (
-    <section id="achievement-ledger" className="space-y-4">
+    <section id="achievement-ledger" className="scroll-mt-[var(--header-offset)] space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h2 className="font-[family-name:var(--font-display)] text-2xl text-zinc-50">
+          <h2 className="font-[family-name:var(--font-display)] text-xl text-zinc-50 sm:text-2xl">
             Achievement ledger
           </h2>
           <p className="mt-1 text-sm text-zinc-500">
@@ -97,24 +97,24 @@ export function CharacterAchievementsPanel({
 
       {view === "table" ? (
         <>
-          <div className="sticky top-16 z-40 -mx-4 border-y border-zinc-800/80 bg-zinc-950/90 px-4 py-3 backdrop-blur-xl sm:-mx-0 sm:rounded-xl sm:border sm:px-4">
+          <div className="sticky top-[var(--header-offset)] z-40 -mx-4 border-y border-zinc-800/80 bg-zinc-950/90 px-4 py-3 backdrop-blur-xl sm:-mx-0 sm:rounded-xl sm:border sm:px-4">
             <div className="flex flex-col gap-3">
               <div className="flex flex-wrap items-center gap-2">
-                <label className="relative min-w-[220px] flex-1">
+                <label className="relative min-w-0 w-full flex-1 sm:min-w-[12rem]">
                   <Search className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-zinc-500" />
                   <input
                     type="search"
                     value={query}
                     onChange={(e) => setQuery(e.target.value)}
                     placeholder="Search name, description, or ID…"
-                    className="w-full rounded-md border border-zinc-700 bg-zinc-900 py-2.5 pr-3 pl-10 text-sm text-zinc-100 outline-none placeholder:text-zinc-600 focus:border-amber-500/50"
+                    className="w-full rounded-md border border-zinc-700 bg-zinc-900 py-2.5 pr-3 pl-10 text-base text-zinc-100 outline-none placeholder:text-zinc-600 focus:border-amber-500/50 md:text-sm"
                   />
                 </label>
 
                 <select
                   value={sort}
                   onChange={(e) => setSort(e.target.value as ProfileLedgerSort)}
-                  className="rounded-md border border-zinc-700 bg-zinc-900 px-3 py-2.5 text-sm text-zinc-100 outline-none focus:border-amber-500/50"
+                  className="min-w-0 w-full rounded-md border border-zinc-700 bg-zinc-900 px-3 py-2.5 text-base text-zinc-100 outline-none focus:border-amber-500/50 md:text-sm sm:w-auto"
                   aria-label="Sort achievements"
                 >
                   <option value="newest">Newest unlocks</option>
@@ -149,7 +149,7 @@ export function CharacterAchievementsPanel({
                 ) : null}
               </div>
 
-              <div className="flex flex-wrap items-center gap-2">
+              <div className="chip-row">
                 {(
                   [
                     ["all", "All"],
@@ -162,7 +162,7 @@ export function CharacterAchievementsPanel({
                     type="button"
                     onClick={() => setProgress(value)}
                     className={cn(
-                      "rounded-md px-3 py-1.5 text-xs font-medium transition",
+                      "rounded-md px-3 py-2 text-xs font-medium transition sm:py-1.5",
                       progress === value
                         ? "bg-zinc-100 text-zinc-950"
                         : "bg-zinc-900 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200",
@@ -182,7 +182,7 @@ export function CharacterAchievementsPanel({
                       type="button"
                       onClick={() => toggleCategory(category)}
                       className={cn(
-                        "rounded-md border px-2.5 py-1.5 text-xs transition",
+                        "rounded-md border px-2.5 py-2 text-xs transition sm:py-1.5",
                         active
                           ? "border-amber-500/50 bg-amber-500/15 text-amber-200"
                           : "border-zinc-800 bg-zinc-900/80 text-zinc-400 hover:border-zinc-600 hover:text-zinc-200",
@@ -235,7 +235,7 @@ function ViewTab({
       aria-selected={active}
       onClick={onClick}
       className={cn(
-        "inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm transition",
+        "inline-flex items-center gap-2 rounded-md px-3 py-2.5 text-sm transition",
         active
           ? "bg-amber-500/15 text-amber-300"
           : "text-zinc-400 hover:text-zinc-200",

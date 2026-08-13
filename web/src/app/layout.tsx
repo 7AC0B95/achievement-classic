@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Cinzel, Source_Sans_3 } from "next/font/google";
 import { cookies } from "next/headers";
 import { Suspense } from "react";
@@ -29,6 +29,13 @@ export const metadata: Metadata = {
     "Retail-style achievement tracking for World of Warcraft Classic Era and Hardcore — install the in-game addon, then sync SavedVariables to public leaderboards.",
 };
 
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+  themeColor: "#09090b",
+};
+
 async function Header() {
   const characters = await fetchUserCharacters();
   const cookieStore = await cookies();
@@ -48,11 +55,11 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       lang="en"
       className={`${display.variable} ${body.variable} h-full antialiased`}
     >
-      <body className="flex min-h-full flex-col font-sans">
+      <body className="flex min-h-full min-w-0 flex-col font-sans">
         <Suspense fallback={<Navbar />}>
           <Header />
         </Suspense>
-        <main className="flex-1">{children}</main>
+        <main className="min-w-0 flex-1">{children}</main>
         <SiteFooter />
       </body>
     </html>

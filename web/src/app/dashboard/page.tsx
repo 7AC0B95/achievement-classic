@@ -23,10 +23,10 @@ export default async function DashboardPage() {
   const others = characters.filter((character) => character.id !== selected?.id);
 
   return (
-    <div className="mx-auto max-w-6xl space-y-6 px-4 py-10 sm:px-6">
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <h1 className="font-[family-name:var(--font-display)] text-3xl text-zinc-50">
+    <div className="mx-auto max-w-6xl space-y-6 px-4 py-6 sm:px-6 sm:py-10">
+      <div className="flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-end sm:justify-between">
+        <div className="min-w-0">
+          <h1 className="font-[family-name:var(--font-display)] text-2xl text-zinc-50 sm:text-3xl">
             Dashboard
           </h1>
           <p className="mt-2 text-zinc-400">

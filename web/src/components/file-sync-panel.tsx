@@ -69,7 +69,7 @@ export function FileSyncPanel() {
   };
 
   return (
-    <section className="rounded-xl border border-zinc-800 bg-zinc-900/60 p-6">
+    <section className="rounded-xl border border-zinc-800 bg-zinc-900/60 p-4 sm:p-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <h2 className="font-[family-name:var(--font-display)] text-xl text-zinc-50">
@@ -115,12 +115,12 @@ export function FileSyncPanel() {
         onChange={(e) => void onUploadChange(e.target.files)}
       />
 
-      <div className="mt-5 flex flex-wrap gap-3">
+      <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
         <button
           type="button"
           onClick={() => inputRef.current?.click()}
           disabled={busy}
-          className="inline-flex items-center gap-2 rounded-md bg-amber-500 px-4 py-2.5 text-sm font-semibold text-zinc-950 transition hover:bg-amber-400 disabled:cursor-not-allowed disabled:opacity-50"
+          className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-md bg-amber-500 px-4 py-2.5 text-sm font-semibold text-zinc-950 transition hover:bg-amber-400 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
         >
           {busy && sync.status === "reading" ? (
             <Loader2 className="h-4 w-4 animate-spin" />
@@ -135,7 +135,7 @@ export function FileSyncPanel() {
             type="button"
             onClick={() => void onSyncSelected()}
             disabled={busy || selectedBundles.length === 0}
-            className="inline-flex items-center gap-2 rounded-md border border-amber-500/50 bg-amber-500/10 px-4 py-2.5 text-sm font-semibold text-amber-200 transition hover:bg-amber-500/20 disabled:cursor-not-allowed disabled:opacity-50"
+            className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-md border border-amber-500/50 bg-amber-500/10 px-4 py-2.5 text-sm font-semibold text-amber-200 transition hover:bg-amber-500/20 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
           >
             {busy && sync.status === "syncing" ? (
               <Loader2 className="h-4 w-4 animate-spin" />
@@ -211,9 +211,9 @@ export function FileSyncPanel() {
                         >
                           {bundle.character.name}
                         </span>
-                        <span className="text-zinc-500">
-                          {" "}
-                          · {getClassLabel(bundle.character.class)} ·{" "}
+                        <span className="mt-0.5 block text-zinc-500 sm:mt-0 sm:inline">
+                          <span className="hidden sm:inline"> · </span>
+                          {getClassLabel(bundle.character.class)} ·{" "}
                           {bundle.character.realm} · L{bundle.character.level} ·{" "}
                           {bundle.character.status}
                         </span>

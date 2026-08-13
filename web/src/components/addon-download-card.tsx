@@ -31,50 +31,52 @@ export function AddonDownloadCard({
 }) {
   const [open, setOpen] = useState(defaultOpen);
 
+  const toggle = () => {
+    const next = !open;
+    setOpen(next);
+    persistOpen(next);
+  };
+
   return (
     <section
       id="download-addon"
       className={cn(
         "scroll-mt-24 rounded-xl border border-amber-500/45 bg-gradient-to-br from-amber-500/16 via-zinc-900/85 to-zinc-950/80 shadow-[0_0_48px_rgba(245,158,11,0.12)]",
-        open ? "p-6" : "px-4 py-3",
+        open ? "p-4 sm:p-6" : "px-4 py-3",
       )}
     >
-      <details
-        className="group"
-        open={open}
-        onToggle={(event) => {
-          const next = event.currentTarget.open;
-          if (next === open) return;
-          setOpen(next);
-          persistOpen(next);
-        }}
-      >
-        <summary className="flex cursor-pointer list-none flex-wrap items-center justify-between gap-4 [&::-webkit-details-marker]:hidden">
-          <div className="flex min-w-0 items-center gap-2">
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-amber-500/40 bg-amber-500/15 text-amber-300">
-              <FolderDown className="h-4.5 w-4.5" />
+      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:gap-4">
+        <button
+          type="button"
+          aria-expanded={open}
+          aria-controls="addon-download-details"
+          onClick={toggle}
+          className="flex min-w-0 items-center gap-2 text-left"
+        >
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-amber-500/40 bg-amber-500/15 text-amber-300">
+            <FolderDown className="h-4.5 w-4.5" />
+          </span>
+          <span className="min-w-0">
+            <span className="block text-xs font-semibold uppercase tracking-[0.2em] text-amber-400/90">
+              Step 1 · In-game addon
             </span>
-            <div className="min-w-0">
-              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-amber-400/90">
-                Step 1 · In-game addon
-              </p>
-              <h2 className="font-[family-name:var(--font-display)] text-xl text-zinc-50 sm:text-2xl">
-                Download the WoW addon
-              </h2>
-            </div>
-            <ChevronDown className="h-5 w-5 shrink-0 text-amber-300 transition group-open:rotate-180" />
-          </div>
+            <span className="block font-[family-name:var(--font-display)] text-lg text-zinc-50 sm:text-2xl">
+              Download the WoW addon
+            </span>
+          </span>
+          <ChevronDown
+            className={cn(
+              "h-5 w-5 shrink-0 text-amber-300 transition",
+              open && "rotate-180",
+            )}
+          />
+        </button>
 
-          <div
-            className="flex items-center gap-2"
-            onClick={(event) => event.stopPropagation()}
-            onPointerDown={(event) => event.stopPropagation()}
-          >
-            <AddonDownloadButton className="px-4 py-2.5" />
-          </div>
-        </summary>
+        <AddonDownloadButton className="w-full justify-center px-4 py-2.5 sm:w-auto" />
+      </div>
 
-        <div className="mt-5">
+      {open ? (
+        <div id="addon-download-details" className="mt-5">
           <p className="max-w-xl text-sm leading-relaxed text-zinc-300">
             Always pulls the latest{" "}
             <code className="rounded bg-zinc-950/80 px-1.5 py-0.5 text-amber-300">
@@ -84,7 +86,7 @@ export function AddonDownloadCard({
             folder. Then play, log out, and sync the SavedVariables file below.
           </p>
 
-          <ol className="mt-5 grid gap-3 text-sm text-zinc-400 sm:grid-cols-3">
+          <ol className="mt-5 grid gap-3 text-sm text-zinc-400 md:grid-cols-3">
             <li className="rounded-lg border border-amber-500/20 bg-zinc-950/50 px-3 py-3">
               <span className="font-semibold text-amber-300">1.</span> Download
               the zip (latest from GitHub).
@@ -122,7 +124,7 @@ export function AddonDownloadCard({
             </p>
           </div>
         </div>
-      </details>
+      ) : null}
     </section>
   );
 }

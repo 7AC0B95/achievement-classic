@@ -11,9 +11,9 @@ interface ActivityFeedProps {
 
 export function ActivityFeed({ items, title = "Live activity" }: ActivityFeedProps) {
   return (
-    <section className="rounded-xl border border-zinc-800 bg-zinc-900/50 p-5">
-      <div className="mb-4 flex items-center justify-between">
-        <h2 className="font-[family-name:var(--font-display)] text-xl text-zinc-50">
+    <section className="rounded-xl border border-zinc-800 bg-zinc-900/50 p-4 sm:p-5">
+      <div className="mb-4 flex items-center justify-between gap-3">
+        <h2 className="font-[family-name:var(--font-display)] text-lg text-zinc-50 sm:text-xl">
           {title}
         </h2>
         <span className="inline-flex items-center gap-2 text-xs uppercase tracking-wider text-emerald-400">
@@ -51,9 +51,9 @@ export function ActivityFeed({ items, title = "Live activity" }: ActivityFeedPro
             return (
               <li
                 key={item.id}
-                className="flex items-start justify-between gap-4 rounded-lg border border-zinc-800/80 bg-zinc-950/50 px-3 py-3 transition hover:border-amber-500/30"
+                className="flex items-start justify-between gap-3 rounded-lg border border-zinc-800/80 bg-zinc-950/50 px-3 py-3 transition hover:border-amber-500/30"
               >
-                <div>
+                <div className="min-w-0">
                   <p className="text-sm text-zinc-200">
                     {profileHref ? (
                       <Link href={profileHref} className="hover:underline">
@@ -68,7 +68,7 @@ export function ActivityFeed({ items, title = "Live activity" }: ActivityFeedPro
                       {getClassLabel(item.characters?.class ?? "")}
                     </span>
                   </p>
-                  <p className="mt-1 text-sm text-zinc-400">
+                  <p className="mt-1 break-words text-sm text-zinc-400">
                     unlocked{" "}
                     <span className="text-amber-300">
                       {item.achievements?.name ?? item.achievement_id}

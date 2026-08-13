@@ -54,7 +54,7 @@ export default async function CharacterProfilePage({
   const items = joinCatalogWithUnlocks(catalog, unlocks);
 
   return (
-    <div className="mx-auto max-w-6xl space-y-8 px-4 py-10 sm:px-6">
+    <div className="mx-auto max-w-6xl space-y-8 px-4 py-6 sm:px-6 sm:py-10">
       <Link
         href="/leaderboard"
         className="inline-flex items-center gap-2 text-sm text-zinc-400 transition hover:text-amber-300"

@@ -54,7 +54,7 @@ export function AuthPanel() {
   };
 
   return (
-    <section className="rounded-xl border border-zinc-800 bg-zinc-900/60 p-5">
+    <section className="rounded-xl border border-zinc-800 bg-zinc-900/60 p-4 sm:p-5">
       <h2 className="font-[family-name:var(--font-display)] text-lg text-zinc-50">
         Account
       </h2>
@@ -74,7 +74,7 @@ export function AuthPanel() {
         </div>
       ) : (
         <form onSubmit={onSignIn} className="mt-3 flex flex-wrap gap-2">
-          <label className="relative min-w-[220px] flex-1">
+          <label className="relative min-w-0 w-full flex-1">
             <Mail className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-zinc-500" />
             <input
               type="email"
@@ -82,13 +82,13 @@ export function AuthPanel() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="you@email.com"
-              className="w-full rounded-md border border-zinc-700 bg-zinc-950 py-2.5 pr-3 pl-10 text-sm text-zinc-100 outline-none focus:border-amber-500/50"
+              className="w-full rounded-md border border-zinc-700 bg-zinc-950 py-2.5 pr-3 pl-10 text-base text-zinc-100 outline-none focus:border-amber-500/50 md:text-sm"
             />
           </label>
           <button
             type="submit"
             disabled={loading}
-            className="inline-flex items-center gap-2 rounded-md bg-zinc-100 px-4 py-2.5 text-sm font-semibold text-zinc-950 hover:bg-white disabled:opacity-50"
+            className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-md bg-zinc-100 px-4 py-2.5 text-sm font-semibold text-zinc-950 hover:bg-white disabled:opacity-50 sm:w-auto"
           >
             {loading ? (
               <Loader2 className="h-4 w-4 animate-spin" />

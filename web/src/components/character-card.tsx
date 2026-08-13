@@ -56,7 +56,7 @@ export function CharacterCard({ character, active = false }: CharacterCardProps)
 
   return (
     <article
-      className="relative overflow-hidden rounded-xl border border-zinc-800 bg-zinc-900/60 p-6 transition hover:border-amber-500/40 hover:shadow-[0_0_30px_rgba(245,158,11,0.1)]"
+      className="relative overflow-hidden rounded-xl border border-zinc-800 bg-zinc-900/60 p-4 transition hover:border-amber-500/40 hover:shadow-[0_0_30px_rgba(245,158,11,0.1)] sm:p-6"
       style={{ boxShadow: `inset 3px 0 0 ${color}` }}
     >
       <div className="flex flex-wrap items-start justify-between gap-4">
@@ -65,7 +65,7 @@ export function CharacterCard({ character, active = false }: CharacterCardProps)
             {active ? "Active character" : "Character"}
           </p>
           <h2
-            className="mt-1 font-[family-name:var(--font-display)] text-3xl"
+            className="mt-1 break-words font-[family-name:var(--font-display)] text-2xl sm:text-3xl"
             style={{ color }}
           >
             <Link href={`/characters/${character.id}`} className="hover:underline">
@@ -123,7 +123,7 @@ export function CharacterCard({ character, active = false }: CharacterCardProps)
           disabled={pending}
           aria-pressed={status === "Dead"}
           className={cn(
-            "inline-flex items-center gap-2 rounded-md border px-3 py-2 text-sm font-medium transition",
+            "inline-flex min-h-11 items-center gap-2 rounded-md border px-3 py-2 text-sm font-medium transition",
             status === "Alive"
               ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/20"
               : "border-rose-500/40 bg-rose-500/10 text-rose-300 hover:bg-rose-500/20",

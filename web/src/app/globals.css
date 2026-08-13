@@ -6,6 +6,8 @@
   --accent: #f59e0b;
   --surface: #18181b;
   --border: #27272a;
+  --header-height: 4rem;
+  --header-offset: calc(var(--header-height) + env(safe-area-inset-top, 0px));
 }
 
 @theme inline {
@@ -21,6 +23,7 @@
 html {
   color-scheme: dark;
   min-height: 100%;
+  overflow-x: clip;
   background-color: var(--background);
 }
 
@@ -102,6 +105,29 @@ body {
 
 .animate-rise-delay-2 {
   animation: rise-in 0.7s ease-out 0.2s both;
+}
+
+.chip-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  padding-bottom: 0.125rem;
+}
+
+.chip-row > * {
+  flex-shrink: 0;
+}
+
+@media (min-width: 640px) {
+  .chip-row {
+    flex-wrap: wrap;
+    overflow: visible;
+    padding-bottom: 0;
+  }
 }
 
 .gold-shimmer {

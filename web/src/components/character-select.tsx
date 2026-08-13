@@ -110,7 +110,7 @@ export function CharacterSelect({
         aria-label={label}
         onClick={() => setOpen((value) => !value)}
         className={cn(
-          "flex w-full items-center gap-2 rounded-md border border-zinc-700 bg-zinc-950 text-left text-sm text-zinc-100 outline-none transition",
+          "flex w-full items-center gap-2 rounded-md border border-zinc-700 bg-zinc-950 text-left text-base text-zinc-100 outline-none transition md:text-sm",
           "hover:border-zinc-500 focus-visible:border-amber-500/50",
           "disabled:cursor-not-allowed disabled:opacity-60",
           compact ? "px-2.5 py-2" : "px-3 py-2.5",
@@ -135,9 +135,9 @@ export function CharacterSelect({
           role="listbox"
           aria-label={label}
           className={cn(
-            "absolute z-50 mt-1 max-h-80 min-w-full overflow-y-auto rounded-md border border-zinc-700 bg-zinc-950 py-1 shadow-xl shadow-black/40",
+            "absolute z-50 mt-1 max-h-[min(20rem,70vh)] w-full min-w-0 overflow-y-auto rounded-md border border-zinc-700 bg-zinc-950 py-1 shadow-xl shadow-black/40",
             align === "end" ? "right-0" : "left-0",
-            compact && "min-w-[18rem]",
+            compact && "md:w-max md:min-w-[18rem]",
           )}
         >
           {allowEmpty ? (

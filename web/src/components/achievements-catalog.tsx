@@ -191,7 +191,7 @@ export function AchievementsCatalog({
       <section className="rounded-xl border border-zinc-800 bg-zinc-900/50 p-5 sm:p-6">
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
-            <h1 className="font-[family-name:var(--font-display)] text-3xl text-zinc-50">
+            <h1 className="font-[family-name:var(--font-display)] text-2xl text-zinc-50 sm:text-3xl">
               Achievement catalog
             </h1>
             <p className="mt-2 max-w-2xl text-sm text-zinc-400">
@@ -202,10 +202,10 @@ export function AchievementsCatalog({
               )}
             </p>
           </div>
-          <div className="text-right">
-            <div className="text-2xl font-semibold text-amber-400">
+          <div className="text-left sm:text-right">
+            <div className="text-xl font-semibold text-amber-400 sm:text-2xl">
               {formatPoints(totals.earnedPoints)}
-              <span className="text-base font-normal text-zinc-500">
+              <span className="text-sm font-normal text-zinc-500 sm:text-base">
                 {" "}
                 / {formatPoints(totals.points)} pts
               </span>
@@ -282,24 +282,24 @@ export function AchievementsCatalog({
       </section>
 
       {/* Sticky controls */}
-      <div className="sticky top-16 z-40 -mx-4 border-y border-zinc-800/80 bg-zinc-950/90 px-4 py-3 backdrop-blur-xl sm:-mx-0 sm:rounded-xl sm:border sm:px-4">
+      <div className="sticky top-[var(--header-offset)] z-40 -mx-4 border-y border-zinc-800/80 bg-zinc-950/90 px-4 py-3 backdrop-blur-xl sm:-mx-0 sm:rounded-xl sm:border sm:px-4">
         <div className="flex flex-col gap-3">
           <div className="flex flex-wrap items-center gap-2">
-            <label className="relative min-w-[220px] flex-1">
+            <label className="relative min-w-0 w-full flex-1 sm:min-w-[12rem]">
               <Search className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-zinc-500" />
               <input
                 type="search"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="Search name, description, or ID…"
-                className="w-full rounded-md border border-zinc-700 bg-zinc-900 py-2.5 pr-3 pl-10 text-sm text-zinc-100 outline-none placeholder:text-zinc-600 focus:border-amber-500/50"
+                className="w-full rounded-md border border-zinc-700 bg-zinc-900 py-2.5 pr-3 pl-10 text-base text-zinc-100 outline-none placeholder:text-zinc-600 focus:border-amber-500/50 md:text-sm"
               />
             </label>
 
             <select
               value={sort}
               onChange={(e) => setSort(e.target.value as AchievementSort)}
-              className="rounded-md border border-zinc-700 bg-zinc-900 px-3 py-2.5 text-sm text-zinc-100 outline-none focus:border-amber-500/50"
+              className="min-w-0 w-full rounded-md border border-zinc-700 bg-zinc-900 px-3 py-2.5 text-base text-zinc-100 outline-none focus:border-amber-500/50 md:text-sm sm:w-auto"
               aria-label="Sort achievements"
             >
               <option value="points_desc">Points · high to low</option>
@@ -350,7 +350,7 @@ export function AchievementsCatalog({
             ) : null}
           </div>
 
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="chip-row">
             {(
               [
                 ["all", "All"],
@@ -373,7 +373,7 @@ export function AchievementsCatalog({
                 type="button"
                 onClick={() => setProgress(value)}
                 className={cn(
-                  "rounded-md px-3 py-1.5 text-xs font-medium transition",
+                  "rounded-md px-3 py-2 text-xs font-medium transition sm:py-1.5",
                   progress === value
                     ? "bg-zinc-100 text-zinc-950"
                     : "bg-zinc-900 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200",
@@ -394,7 +394,7 @@ export function AchievementsCatalog({
                   type="button"
                   onClick={() => toggleCategory(category)}
                   className={cn(
-                    "inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs transition",
+                    "inline-flex items-center gap-1.5 rounded-md border px-2.5 py-2 text-xs transition sm:py-1.5",
                     active
                       ? "border-amber-500/50 bg-amber-500/15 text-amber-200"
                       : "border-zinc-800 bg-zinc-900/80 text-zinc-400 hover:border-zinc-600 hover:text-zinc-200",
@@ -683,8 +683,8 @@ function CompareMeter({
   return (
     <div>
       <div className="flex items-baseline justify-between gap-2 text-sm">
-        <span className="truncate font-medium text-zinc-200">{label}</span>
-        <span className="shrink-0 text-xs text-zinc-500">{caption}</span>
+        <span className="min-w-0 truncate font-medium text-zinc-200">{label}</span>
+        <span className="shrink text-right text-xs text-zinc-500">{caption}</span>
       </div>
       <div className="mt-1.5 h-2 overflow-hidden rounded-full bg-zinc-950">
         <div

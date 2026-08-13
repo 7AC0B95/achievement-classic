@@ -18,14 +18,14 @@ export function CharacterCategoryBoard({
   return (
     <section className="space-y-3">
       <div>
-        <h2 className="font-[family-name:var(--font-display)] text-2xl text-zinc-50">
+        <h2 className="font-[family-name:var(--font-display)] text-xl text-zinc-50 sm:text-2xl">
           Category progress
         </h2>
         <p className="mt-1 text-sm text-zinc-500">
-          Click a category to filter the ledger below.
+          Select a category to filter the ledger below.
         </p>
       </div>
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+      <div className="grid grid-cols-2 gap-2 sm:gap-3 lg:grid-cols-5">
         {progress.map((entry) => {
           const active = selected.includes(entry.category);
           return (
@@ -35,14 +35,14 @@ export function CharacterCategoryBoard({
               onClick={() => onSelect(entry.category)}
               aria-pressed={active}
               className={cn(
-                "rounded-xl border bg-zinc-900/60 p-3 text-left transition",
+                "rounded-xl border bg-zinc-900/60 p-3 text-left transition min-h-11",
                 active
                   ? "border-amber-500/50 bg-amber-500/10"
                   : "border-zinc-800 hover:border-amber-500/35",
               )}
             >
               <div className="flex items-baseline justify-between gap-2">
-                <h3 className="text-sm font-medium text-zinc-100">{entry.category}</h3>
+                <h3 className="min-w-0 text-sm font-medium break-words text-zinc-100">{entry.category}</h3>
                 <span className="shrink-0 text-xs text-zinc-500">
                   {entry.unlocked}/{entry.total}
                 </span>

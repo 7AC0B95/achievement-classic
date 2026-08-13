@@ -16,7 +16,7 @@ export function CharacterTravelLog({ stats }: CharacterTravelLogProps) {
   return (
     <section className="space-y-3">
       <div>
-        <h2 className="font-[family-name:var(--font-display)] text-2xl text-zinc-50">
+        <h2 className="font-[family-name:var(--font-display)] text-xl text-zinc-50 sm:text-2xl">
           Travel log
         </h2>
         <p className="mt-1 text-sm text-zinc-500">

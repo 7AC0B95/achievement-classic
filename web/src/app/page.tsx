@@ -22,31 +22,31 @@ export default async function HomePage() {
               "radial-gradient(circle at 20% 20%, rgba(245,158,11,0.15), transparent 35%), radial-gradient(circle at 80% 30%, rgba(113,113,122,0.2), transparent 40%), linear-gradient(to bottom, transparent, #09090b)",
           }}
         />
-        <div className="relative mx-auto grid max-w-6xl gap-10 px-4 py-20 sm:px-6 lg:grid-cols-[1.2fr_0.8fr] lg:py-28">
+        <div className="relative mx-auto grid max-w-6xl gap-10 px-4 py-12 sm:px-6 sm:py-20 lg:grid-cols-[1.2fr_0.8fr] lg:py-28">
           <div className="animate-rise">
-            <p className="mb-4 text-sm uppercase tracking-[0.25em] text-amber-500/90">
+            <p className="mb-4 text-xs uppercase tracking-[0.18em] text-amber-500/90 sm:text-sm sm:tracking-[0.25em]">
               Classic Era / Hardcore · Addon + website
             </p>
-            <h1 className="font-[family-name:var(--font-display)] text-5xl leading-tight text-zinc-50 sm:text-6xl">
+            <h1 className="font-[family-name:var(--font-display)] text-4xl leading-tight text-zinc-50 sm:text-5xl lg:text-6xl">
               <span className="gold-shimmer">Classic Glory</span>
             </h1>
-            <p className="mt-5 max-w-xl text-lg leading-relaxed text-zinc-400">
+            <p className="mt-5 max-w-xl text-base leading-relaxed text-zinc-400 sm:text-lg">
               The in-game addon tracks 190+ custom achievements. This website
               publishes them — upload your account-wide SavedVariables file and
               climb the global leaderboards.
             </p>
-            <div className="mt-8 flex flex-wrap gap-3">
-              <AddonDownloadButton>Download the addon</AddonDownloadButton>
+            <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+              <AddonDownloadButton className="w-full justify-center sm:w-auto">Download the addon</AddonDownloadButton>
               <Link
                 href="/dashboard"
-                className="inline-flex items-center gap-2 rounded-md border border-zinc-700 bg-zinc-950/60 px-5 py-3 text-sm font-medium text-zinc-200 transition hover:border-amber-500/40"
+                className="inline-flex w-full items-center justify-center gap-2 rounded-md border border-zinc-700 bg-zinc-950/60 px-5 py-3 text-sm font-medium text-zinc-200 transition hover:border-amber-500/40 sm:w-auto"
               >
                 Connect character
                 <ArrowRight className="h-4 w-4" />
               </Link>
               <Link
                 href="/leaderboard"
-                className="inline-flex items-center gap-2 rounded-md border border-zinc-700 bg-zinc-950/60 px-5 py-3 text-sm font-medium text-zinc-200 transition hover:border-amber-500/40"
+                className="inline-flex w-full items-center justify-center gap-2 rounded-md border border-zinc-700 bg-zinc-950/60 px-5 py-3 text-sm font-medium text-zinc-200 transition hover:border-amber-500/40 sm:w-auto"
               >
                 View leaderboards
               </Link>
@@ -79,7 +79,7 @@ export default async function HomePage() {
       </section>
 
       <section className="border-b border-zinc-800/80">
-        <div className="mx-auto grid max-w-6xl gap-4 px-4 py-10 sm:grid-cols-3 sm:px-6">
+        <div className="mx-auto grid max-w-6xl gap-4 px-4 py-10 md:grid-cols-3 sm:px-6">
           <HowStep
             n="1"
             title="Install the addon"
@@ -104,15 +104,15 @@ export default async function HomePage() {
         </div>
         <div className="animate-rise-delay-2">
           <div className="mb-4 flex items-end justify-between gap-3">
-            <div>
-              <h2 className="font-[family-name:var(--font-display)] text-2xl text-zinc-50">
+            <div className="min-w-0">
+              <h2 className="font-[family-name:var(--font-display)] text-xl text-zinc-50 sm:text-2xl">
                 Overall leaderboard
               </h2>
               <p className="mt-1 text-sm text-zinc-500">Sorted by total achievement points</p>
             </div>
             <Link
               href="/leaderboard"
-              className="text-sm text-amber-400 hover:text-amber-300"
+              className="shrink-0 text-sm text-amber-400 hover:text-amber-300"
             >
               Full table →
             </Link>

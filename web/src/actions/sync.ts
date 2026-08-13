@@ -31,7 +31,7 @@ export async function syncCharacterFromAddon(
       return {
         ok: false,
         needsAuth: true,
-        message: "Sign in to sync your character to Laucob's Achievements.",
+        message: "Sign in to sync your character to Classic Glory.",
       };
     }
 

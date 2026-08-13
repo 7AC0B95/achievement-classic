@@ -8,6 +8,7 @@ import {
   ADDON_FOLDER_NAME,
   ADDON_GITHUB_URL,
   ADDON_INSTALL_PATH,
+  ADDON_SLASH_COMMAND,
 } from "@/lib/addon";
 import { cn } from "@/lib/utils";
 
@@ -96,7 +97,7 @@ export function AddonDownloadCard({
             <li className="rounded-lg border border-amber-500/20 bg-zinc-950/50 px-3 py-3">
               <span className="font-semibold text-amber-300">3.</span> In-game{" "}
               <code className="text-zinc-200">/reload</code>, then{" "}
-              <code className="text-zinc-200">/la</code>.
+              <code className="text-zinc-200">{ADDON_SLASH_COMMAND}</code>.
             </li>
           </ol>
 

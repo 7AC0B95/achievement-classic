@@ -2,24 +2,27 @@ import type {
   HardcoreStatus,
   ParsedCharacterBundle,
   ParsedCompletedAchievement,
-  ParsedLaucobsDB,
+  ParsedClassicGloryDB,
   ParsedStats,
 } from "@/lib/types";
 
 /**
- * Parses WoW SavedVariables Lua for LaucobsAchievementsDB (account-wide) into typed JSON.
+ * Parses WoW SavedVariables Lua for ClassicGloryDB (account-wide) into typed JSON.
+ * Also accepts leftover LaucobsAchievementsDB from the previous addon name.
  */
-export function parseLaucobsAchievementsDB(luaText: string): ParsedLaucobsDB {
-  const assignment = extractTableAssignment(luaText, "LaucobsAchievementsDB");
+export function parseClassicGloryDB(luaText: string): ParsedClassicGloryDB {
+  const assignment =
+    extractTableAssignment(luaText, "ClassicGloryDB") ??
+    extractTableAssignment(luaText, "LaucobsAchievementsDB");
   if (!assignment) {
     throw new Error(
-      "LaucobsAchievementsDB not found in file. Is the addon installed and has it saved once (log out)?",
+      "ClassicGloryDB not found in file. Is the addon installed and has it saved once (log out)?",
     );
   }
 
   const root = parseLuaTable(assignment);
   if (!root || typeof root !== "object" || Array.isArray(root)) {
-    throw new Error("LaucobsAchievementsDB is not a table.");
+    throw new Error("ClassicGloryDB is not a table.");
   }
 
   const charactersRaw = (root.characters ?? {}) as Record<string, unknown>;
@@ -183,7 +186,7 @@ function sliceBalancedTable(source: string, openBraceIndex: number): string {
     i += 1;
   }
 
-  throw new Error("Unbalanced Lua table while parsing LaucobsAchievementsDB.");
+  throw new Error("Unbalanced Lua table while parsing ClassicGloryDB.");
 }
 
 type LuaValue =

@@ -1,5 +1,5 @@
 --[[
-  LaucobsAchievements - UI
+  Classic Glory - UI
   Retail-inspired achievement panel for Classic Era / Hardcore.
   Uses only Classic-safe APIs and textures.
 ]]
@@ -1145,7 +1145,7 @@ local function PopulatePlayers()
     Color(card.name, "gold")
     card.name:SetText("No players found yet")
     card.detail:SetTextColor(0.75, 0.70, 0.55, 1)
-    card.detail:SetText("Guild, party, and raid members with the addon appear here. Target a player and type /la inspect.")
+    card.detail:SetText("Guild, party, and raid members with the addon appear here. Target a player and type /cg inspect.")
     card:SetBackdropBorderColor(unpack(C.borderDim))
     card:SetScript("OnClick", nil)
     card:Show()
@@ -1343,7 +1343,7 @@ end
 ---------------------------------------------------------------------------
 
 local function CreateMinimapButton()
-  local btn = CreateFrame("Button", "LaucobsAchievementsMinimapButton", Minimap)
+  local btn = CreateFrame("Button", "ClassicGloryMinimapButton", Minimap)
   btn:SetSize(32, 32)
   btn:SetFrameStrata("MEDIUM")
   btn:SetFrameLevel(8)
@@ -1389,7 +1389,7 @@ local function CreateMinimapButton()
   end)
   btn:SetScript("OnEnter", function(self)
     GameTooltip:SetOwner(self, "ANCHOR_LEFT")
-    GameTooltip:AddLine("Laucob's Achievements", 1, 0.82, 0)
+    GameTooltip:AddLine(LA.displayName or "Classic Glory", 1, 0.82, 0)
     GameTooltip:AddLine("Click to open. Drag to move.", 0.75, 0.75, 0.75, true)
     GameTooltip:Show()
   end)
@@ -1407,7 +1407,7 @@ function UI:Init()
     return
   end
 
-  local f = CreateFrame("Frame", "LaucobsAchievementsFrame", UIParent, "BackdropTemplate")
+  local f = CreateFrame("Frame", "ClassicGloryFrame", UIParent, "BackdropTemplate")
   f:SetSize(PANEL_W, PANEL_H)
   f:SetPoint("CENTER")
   f:SetMovable(true)
@@ -1479,7 +1479,7 @@ function UI:Init()
   local title = header:CreateFontString(nil, "OVERLAY")
   SetFS(title, 20)
   title:SetPoint("LEFT", titleIcon, "RIGHT", 12, 1)
-  title:SetText("Laucob's Achievements")
+  title:SetText(LA.displayName or "Classic Glory")
   Color(title, "gold")
   f.title = title
 
@@ -1538,7 +1538,7 @@ function UI:Init()
   sideRule:SetPoint("TOPRIGHT", -12, -30)
 
   -- Scrollable category list (fits the longer catalog + Players)
-  local sideScroll = CreateFrame("ScrollFrame", "LaucobsAchievementsCatScroll", sidebar, "UIPanelScrollFrameTemplate")
+  local sideScroll = CreateFrame("ScrollFrame", "ClassicGloryCatScroll", sidebar, "UIPanelScrollFrameTemplate")
   sideScroll:SetPoint("TOPLEFT", 2, -36)
   sideScroll:SetPoint("BOTTOMRIGHT", -22, 6)
   f.sideScroll = sideScroll
@@ -1624,7 +1624,7 @@ function UI:Init()
   playersToolbar:Hide()
   UI.playersToolbar = playersToolbar
 
-  local searchBox = CreateFrame("EditBox", "LaucobsAchievementsPlayerSearch", playersToolbar, "InputBoxTemplate")
+  local searchBox = CreateFrame("EditBox", "ClassicGloryPlayerSearch", playersToolbar, "InputBoxTemplate")
   searchBox:SetAutoFocus(false)
   searchBox:SetHeight(22)
   searchBox:SetPoint("TOPLEFT", 4, -2)
@@ -1724,7 +1724,7 @@ function UI:Init()
   UpdatePlayerFilterButtons()
 
   -- Scroll area
-  local scrollFrame = CreateFrame("ScrollFrame", "LaucobsAchievementsScrollFrame", main, "UIPanelScrollFrameTemplate")
+  local scrollFrame = CreateFrame("ScrollFrame", "ClassicGloryScrollFrame", main, "UIPanelScrollFrameTemplate")
   scrollFrame:SetPoint("TOPLEFT", 10, SCROLL_TOP_DEFAULT)
   scrollFrame:SetPoint("BOTTOMRIGHT", -32, 10)
   f.scrollFrame = scrollFrame
@@ -1792,7 +1792,7 @@ function UI:Init()
     SelectCategory(LA.Categories[1].id)
   end
 
-  tinsert(UISpecialFrames, "LaucobsAchievementsFrame")
+  tinsert(UISpecialFrames, "ClassicGloryFrame")
 end
 
 function UI:Refresh()

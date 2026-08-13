@@ -11,6 +11,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { AddonDownloadButton } from "@/components/addon-download-button";
 import { useWowSync } from "@/hooks/use-wow-sync";
 import { getAchievementById } from "@/lib/achievements";
+import { ADDON_SAVED_VARIABLES_FILE } from "@/lib/addon";
 import { getClassColor, getClassLabel } from "@/lib/class-colors";
 import type { ParsedCharacterBundle } from "@/lib/types";
 import { cn, formatDateTime, formatPoints } from "@/lib/utils";
@@ -77,7 +78,7 @@ export function FileSyncPanel() {
           <p className="mt-1 max-w-xl text-sm text-zinc-400">
             After playing with the in-game addon, sync progress by uploading{" "}
             <code className="rounded bg-zinc-950 px-1.5 py-0.5 text-amber-300">
-              LaucobsAchievements.lua
+              {ADDON_SAVED_VARIABLES_FILE}
             </code>
             . Find it in your Classic Era install at{" "}
             <code className="rounded bg-zinc-950 px-1.5 py-0.5 text-zinc-300">

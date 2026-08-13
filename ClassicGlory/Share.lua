@@ -1,5 +1,5 @@
 --[[
-  LaucobsAchievements - Share
+  Classic Glory - Share
   Social-graph peer discovery and completion sync (guild / party / raid / whisper).
 ]]
 
@@ -8,6 +8,7 @@ local addonName, LA = ...
 local Share = {}
 LA.Share = Share
 
+-- Keep the historical prefix so peers on older builds still share.
 local PREFIX = "LAACH"
 local PROTOCOL_VER = 1
 local PEER_TTL = 600 -- seconds; drop silent peers after ~10 minutes
@@ -60,7 +61,7 @@ local function NormalizeName(name)
 end
 
 local function IsSharingEnabled()
-  local db = LA.db or LaucobsAchievementsDB
+  local db = LA.db or ClassicGloryDB
   if not db then
     return true
   end
@@ -534,7 +535,7 @@ function Share:IsEnabled()
 end
 
 function Share:SetEnabled(enabled)
-  local db = LA.db or LaucobsAchievementsDB
+  local db = LA.db or ClassicGloryDB
   if not db then
     return
   end

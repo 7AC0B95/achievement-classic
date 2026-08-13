@@ -1,12 +1,12 @@
 #Requires -Version 5.1
 <#
 .SYNOPSIS
-  Sync Laucob's Achievements from GitHub into your WoW Classic Era AddOns folder.
+  Sync Classic Glory from GitHub into your WoW Classic Era AddOns folder.
 
 .DESCRIPTION
   No Git install required. Polls the public commits Atom feed (not the rate-limited
   GitHub REST API). When the tip commit changes, downloads only files listed in
-  LaucobsAchievements/LaucobsAchievements.toc from raw.githubusercontent.com.
+  ClassicGlory/ClassicGlory.toc from raw.githubusercontent.com.
 
   Default mode watches continuously for active development.
 #>
@@ -28,11 +28,12 @@ $ErrorActionPreference = "Stop"
 $RepoOwner = "7AC0B95"
 $RepoName = "achievement-classic"
 $Branch = "main"
-$AddonFolderName = "LaucobsAchievements"
-$TocFileName = "LaucobsAchievements.toc"
-$UserAgent = "LaucobsAchievements-Updater"
+$AddonFolderName = "ClassicGlory"
+$TocFileName = "ClassicGlory.toc"
+$UserAgent = "ClassicGlory-Updater"
+$LegacyAddonFolderName = "LaucobsAchievements"
 
-$StateDir = Join-Path $env:LOCALAPPDATA "LaucobsAchievements"
+$StateDir = Join-Path $env:LOCALAPPDATA "ClassicGlory"
 $ConfigPath = Join-Path $StateDir "config.json"
 $MarkerPath = Join-Path $StateDir "last-sync.json"
 
@@ -67,12 +68,16 @@ function Show-WatchStatus([int]$Frame) {
 }
 
 function Get-Config {
-  if (-not (Test-Path $ConfigPath)) { return $null }
-  try {
-    return Get-Content -LiteralPath $ConfigPath -Raw | ConvertFrom-Json
-  } catch {
-    return $null
+  $paths = @($ConfigPath, (Join-Path (Join-Path $env:LOCALAPPDATA "LaucobsAchievements") "config.json"))
+  foreach ($path in $paths) {
+    if (-not (Test-Path $path)) { continue }
+    try {
+      return Get-Content -LiteralPath $path -Raw | ConvertFrom-Json
+    } catch {
+      continue
+    }
   }
+  return $null
 }
 
 function Save-Config([string]$AddOnsPath) {
@@ -206,7 +211,7 @@ function Save-SyncMarker([string]$Sha) {
 
 function Test-CanWrite([string]$Directory) {
   try {
-    $probe = Join-Path $Directory (".laucobs-write-test-" + [guid]::NewGuid().ToString("N"))
+    $probe = Join-Path $Directory (".classicglory-write-test-" + [guid]::NewGuid().ToString("N"))
     New-Item -ItemType File -Path $probe -Force | Out-Null
     Remove-Item -LiteralPath $probe -Force
     return $true
@@ -337,6 +342,14 @@ function Install-AddonFiles {
   return "Updated"
 }
 
+function Remove-LegacyAddon([string]$AddOnsPath) {
+  $legacy = Join-Path $AddOnsPath $LegacyAddonFolderName
+  if (Test-PathExists $legacy) {
+    Write-Step "Removing old $LegacyAddonFolderName folder"
+    Remove-Item -LiteralPath $legacy -Recurse -Force
+  }
+}
+
 function Sync-Addon {
   param(
     [Parameter(Mandatory = $true)]
@@ -351,6 +364,7 @@ function Sync-Addon {
   $marker = Get-SyncMarker
   $lastSha = if ($marker -and $marker.sha) { [string]$marker.sha } else { $null }
   $destAddon = Join-Path $AddOnsPath $AddonFolderName
+  Remove-LegacyAddon $AddOnsPath
 
   $sha = Get-RemoteHeadSha
   $shortSha = $sha.Substring(0, [Math]::Min(7, $sha.Length))
@@ -401,7 +415,7 @@ function Format-CheckError([string]$Message) {
 
 try {
   Write-Host ""
-  Write-Host "Laucob's Achievements - GitHub sync" -ForegroundColor White
+  Write-Host "Classic Glory - GitHub sync" -ForegroundColor White
   Write-Host ("=" * 42)
 
   $addOnsPath = Resolve-AddOnsPath

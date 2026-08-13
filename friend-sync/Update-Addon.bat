@@ -1,5 +1,5 @@
 @echo off
-title Laucob's Achievements — Watching for updates
+title Classic Glory — Watching for updates
 cd /d "%~dp0"
 rem Default: keep running and sync whenever GitHub gets new commits.
 rem One-shot: Update-Addon.bat -Once

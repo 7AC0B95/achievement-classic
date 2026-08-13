@@ -1,5 +1,5 @@
 --[[
-  LaucobsAchievements - Alert
+  Classic Glory - Alert
   Toast popup + sound when an achievement is earned.
 ]]
 
@@ -23,7 +23,7 @@ local function EnsureToast()
     return toast
   end
 
-  toast = CreateFrame("Frame", "LaucobsAchievementsToast", UIParent, "BackdropTemplate")
+  toast = CreateFrame("Frame", "ClassicGloryToast", UIParent, "BackdropTemplate")
   toast:SetSize(TOAST_WIDTH, TOAST_HEIGHT)
   toast:SetPoint("TOP", UIParent, "TOP", 0, -80)
   toast:SetFrameStrata("FULLSCREEN_DIALOG")

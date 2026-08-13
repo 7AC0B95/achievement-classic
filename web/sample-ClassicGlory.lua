@@ -1,7 +1,7 @@
 -- Sample account-wide SavedVariables for parser / upload testing
--- (not produced by WoW; shape matches LaucobsAchievementsDB after v4)
+-- (not produced by WoW; shape matches ClassicGloryDB after v4)
 
-LaucobsAchievementsDB = {
+ClassicGloryDB = {
   ["version"] = 4,
   ["shareEnabled"] = true,
   ["debugEnabled"] = false,

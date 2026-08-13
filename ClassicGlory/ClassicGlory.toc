@@ -1,9 +1,9 @@
 ## Interface: 11509
-## Title: Laucob's Achievements
+## Title: Classic Glory
 ## Notes: In-game achievement tracking for Classic Era / Hardcore. Share with guild, party, and raid, or upload SavedVariables on the website to join public leaderboards.
 ## Author: Laucob
 ## Version: 0.4.0
-## SavedVariables: LaucobsAchievementsDB
+## SavedVariables: ClassicGloryDB
 
 Core.lua
 Data.lua

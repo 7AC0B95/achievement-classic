@@ -1,4 +1,4 @@
--- Seed Laucobs Achievements catalog (190 achievements)
+-- Seed Classic Glory catalog (190 achievements)
 insert into public.achievements (id, name, description, category, points, icon)
 values
   ('1001', 'Fresh Meat', 'Create a character and take your first steps into Azeroth. Reach level 2.', 'General', 5, 'Interface\\Icons\\Spell_Nature_Regeneration'),

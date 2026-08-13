@@ -1,5 +1,5 @@
 --[[
-  LaucobsAchievements - Tracker
+  Classic Glory - Tracker
   Central event frame + criteria routing for Classic Era / Hardcore.
 ]]
 

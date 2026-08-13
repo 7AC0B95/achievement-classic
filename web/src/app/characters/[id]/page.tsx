@@ -24,10 +24,10 @@ export async function generateMetadata({ params }: CharacterProfilePageProps) {
   const { id } = await params;
   const character = await fetchCharacterById(id);
   if (!character) {
-    return { title: "Character not found | Laucob's Achievements" };
+    return { title: "Character not found | Classic Glory" };
   }
   return {
-    title: `${character.name}-${character.realm} | Laucob's Achievements`,
+    title: `${character.name}-${character.realm} | Classic Glory`,
     description: `Character profile for ${character.name} on ${character.realm}`,
   };
 }

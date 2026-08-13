@@ -28,7 +28,7 @@ export default async function HomePage() {
               Classic Era / Hardcore · Addon + website
             </p>
             <h1 className="font-[family-name:var(--font-display)] text-5xl leading-tight text-zinc-50 sm:text-6xl">
-              <span className="gold-shimmer">Laucob&apos;s Achievements</span>
+              <span className="gold-shimmer">Classic Glory</span>
             </h1>
             <p className="mt-5 max-w-xl text-lg leading-relaxed text-zinc-400">
               The in-game addon tracks 190+ custom achievements. This website
@@ -57,12 +57,12 @@ export default async function HomePage() {
             <Feature
               icon={<Download className="h-4 w-4" />}
               title="In-game addon"
-              body="Drop LaucobsAchievements into Interface\AddOns, /reload, then /la. Track feats while you play."
+              body="Drop ClassicGlory into Interface\AddOns, /reload, then /cg. Track feats while you play."
             />
             <Feature
               icon={<Upload className="h-4 w-4" />}
               title="Account-wide Lua sync"
-              body="Upload LaucobsAchievements.lua once to sync every character on the account."
+              body="Upload ClassicGlory.lua once to sync every character on the account."
             />
             <Feature
               icon={<Swords className="h-4 w-4" />}
@@ -88,7 +88,7 @@ export default async function HomePage() {
           <HowStep
             n="2"
             title="Play and unlock"
-            body="Open /la in-game. Achievements track as you quest, explore, and fight."
+            body="Open /cg in-game. Achievements track as you quest, explore, and fight."
           />
           <HowStep
             n="3"

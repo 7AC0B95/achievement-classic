@@ -6,7 +6,7 @@ import {
   ADDON_TOC_FILES,
 } from "@/lib/addon";
 
-const USER_AGENT = "LaucobsAchievements-Web";
+const USER_AGENT = "ClassicGlory-Web";
 
 function fetchFresh(url: string) {
   return fetch(url, {

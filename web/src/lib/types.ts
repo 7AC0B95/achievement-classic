@@ -66,7 +66,7 @@ export interface ParsedCharacterBundle {
   stats: ParsedStats;
 }
 
-export interface ParsedLaucobsDB {
+export interface ParsedClassicGloryDB {
   version: number;
   characters: ParsedCharacterBundle[];
 }

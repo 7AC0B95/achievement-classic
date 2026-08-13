@@ -2,7 +2,7 @@
 
 import { Download } from "lucide-react";
 import type { ReactNode } from "react";
-import { ADDON_DOWNLOAD_PATH } from "@/lib/addon";
+import { ADDON_DOWNLOAD_PATH, ADDON_FOLDER_NAME } from "@/lib/addon";
 import { cn } from "@/lib/utils";
 
 type Variant = "primary" | "outline" | "link";
@@ -24,7 +24,7 @@ export function AddonDownloadButton({
   return (
     <a
       href={ADDON_DOWNLOAD_PATH}
-      download="LaucobsAchievements.zip"
+      download={`${ADDON_FOLDER_NAME}.zip`}
       onClick={onClick}
       className={cn(
         "inline-flex items-center gap-2 transition",

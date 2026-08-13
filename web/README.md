@@ -1,4 +1,4 @@
-# Laucob's Achievements — web
+# Classic Glory — web
 
 Next.js app for public leaderboards, character profiles, and uploading the addon SavedVariables file.
 
@@ -27,10 +27,10 @@ Without env vars the UI still loads; live activity and the leaderboard stay empt
 After logging out of WoW, upload:
 
 ```
-World of Warcraft\_classic_era_\WTF\Account\<Account>\SavedVariables\LaucobsAchievements.lua
+World of Warcraft\_classic_era_\WTF\Account\<Account>\SavedVariables\ClassicGlory.lua
 ```
 
-Sample parser input: [`sample-LaucobsAchievements.lua`](sample-LaucobsAchievements.lua).
+Older `LaucobsAchievements.lua` files still parse. Sample parser input: [`sample-ClassicGlory.lua`](sample-ClassicGlory.lua).
 
 ## Scripts
 

@@ -1,11 +1,12 @@
 --[[
-  LaucobsAchievements - Core
+  Classic Glory - Core
   Initializes the addon namespace, SavedVariables, and slash commands.
 ]]
 
 local addonName, LA = ...
 
 LA.name = addonName
+LA.displayName = "Classic Glory"
 LA.version = "0.4.0"
 
 -- Defaults applied on first load / when keys are missing.
@@ -214,7 +215,10 @@ function LA:GetCharDB()
   if not key then
     return nil
   end
-  local db = LaucobsAchievementsDB
+  local db = self.db or ClassicGloryDB
+  if not db or type(db.characters) ~= "table" then
+    return nil
+  end
   if not db.characters[key] then
     local ident = ReadPlayerIdentity()
     db.characters[key] = {
@@ -412,7 +416,7 @@ function LA:Debug(msg)
   if not self:IsDebug() then
     return
   end
-  DEFAULT_CHAT_FRAME:AddMessage("|cff888888[LA debug]|r " .. tostring(msg))
+  DEFAULT_CHAT_FRAME:AddMessage("|cff888888[CG debug]|r " .. tostring(msg))
 end
 
 local eventFrame = CreateFrame("Frame")
@@ -424,31 +428,36 @@ eventFrame:RegisterEvent("PLAYER_LEVEL_UP")
 
 eventFrame:SetScript("OnEvent", function(_, event, arg1)
   if event == "ADDON_LOADED" and arg1 == addonName then
-    if type(LaucobsAchievementsDB) ~= "table" then
-      LaucobsAchievementsDB = {}
+    -- Adopt leftover LaucobsAchievementsDB if the SavedVariables file was copied in place.
+    if type(ClassicGloryDB) ~= "table" then
+      if type(LaucobsAchievementsDB) == "table" then
+        ClassicGloryDB = LaucobsAchievementsDB
+      else
+        ClassicGloryDB = {}
+      end
     end
     for k, v in pairs(defaults) do
-      if k ~= "version" and LaucobsAchievementsDB[k] == nil then
+      if k ~= "version" and ClassicGloryDB[k] == nil then
         if type(v) == "table" then
-          LaucobsAchievementsDB[k] = {}
+          ClassicGloryDB[k] = {}
         else
-          LaucobsAchievementsDB[k] = v
+          ClassicGloryDB[k] = v
         end
       end
     end
-    if type(LaucobsAchievementsDB.characters) ~= "table" then
-      LaucobsAchievementsDB.characters = {}
+    if type(ClassicGloryDB.characters) ~= "table" then
+      ClassicGloryDB.characters = {}
     end
-    if LaucobsAchievementsDB.shareEnabled == nil then
-      LaucobsAchievementsDB.shareEnabled = true
+    if ClassicGloryDB.shareEnabled == nil then
+      ClassicGloryDB.shareEnabled = true
     end
-    if LaucobsAchievementsDB.debugEnabled == nil then
-      LaucobsAchievementsDB.debugEnabled = false
+    if ClassicGloryDB.debugEnabled == nil then
+      ClassicGloryDB.debugEnabled = false
     end
 
-    MigrateDB(LaucobsAchievementsDB)
+    MigrateDB(ClassicGloryDB)
 
-    LA.db = LaucobsAchievementsDB
+    LA.db = ClassicGloryDB
     LA.loaded = true
   elseif event == "PLAYER_LOGIN" then
     -- Ensure char row exists once the player unit is available
@@ -467,7 +476,7 @@ eventFrame:SetScript("OnEvent", function(_, event, arg1)
     end
 
     DEFAULT_CHAT_FRAME:AddMessage(
-      "|cffffd100Laucob's Achievements|r loaded. Type |cff00ff00/la|r to open the in-game panel. |cff00ff00/la web|r shows how to publish progress on the website leaderboard."
+      "|cffffd100Classic Glory|r loaded. Type |cff00ff00/cg|r to open the in-game panel. |cff00ff00/cg web|r shows how to publish progress on the website leaderboard."
     )
   elseif event == "PLAYER_LEVEL_UP" then
     LA:RefreshCharacterMeta(nil, { level = arg1 })
@@ -476,10 +485,12 @@ eventFrame:SetScript("OnEvent", function(_, event, arg1)
   end
 end)
 
-SLASH_LAUCOBSACHIEVEMENTS1 = "/la"
-SLASH_LAUCOBSACHIEVEMENTS2 = "/laach"
-SLASH_LAUCOBSACHIEVEMENTS3 = "/lachievements"
-SlashCmdList["LAUCOBSACHIEVEMENTS"] = function(msg)
+SLASH_CLASSICGLORY1 = "/cg"
+SLASH_CLASSICGLORY2 = "/classicglory"
+SLASH_CLASSICGLORY3 = "/la"
+SLASH_CLASSICGLORY4 = "/laach"
+SLASH_CLASSICGLORY5 = "/lachievements"
+SlashCmdList["CLASSICGLORY"] = function(msg)
   msg = (msg or ""):match("^%s*(.-)%s*$") or ""
   local cmd, rest = msg:match("^(%S+)%s*(.-)$")
   cmd = (cmd or ""):lower()
@@ -490,24 +501,24 @@ SlashCmdList["LAUCOBSACHIEVEMENTS"] = function(msg)
     if arg == "on" or arg == "1" or arg == "enable" then
       LA:SetDebug(true)
       DEFAULT_CHAT_FRAME:AddMessage(
-        "|cffffd100Laucob's Achievements|r: debug |cff00ff00on|r. "
-          .. "IDs shown in the panel. |cff00ff00/la reset <id>|r resets one achievement."
+        "|cffffd100Classic Glory|r: debug |cff00ff00on|r. "
+          .. "IDs shown in the panel. |cff00ff00/cg reset <id>|r resets one achievement."
       )
     elseif arg == "off" or arg == "0" or arg == "disable" then
       LA:SetDebug(false)
-      DEFAULT_CHAT_FRAME:AddMessage("|cffffd100Laucob's Achievements|r: debug |cffff5555off|r.")
+      DEFAULT_CHAT_FRAME:AddMessage("|cffffd100Classic Glory|r: debug |cffff5555off|r.")
     elseif arg == "" then
       local on = LA:IsDebug()
       LA:SetDebug(not on)
       on = LA:IsDebug()
       DEFAULT_CHAT_FRAME:AddMessage(
-        "|cffffd100Laucob's Achievements|r: debug "
+        "|cffffd100Classic Glory|r: debug "
           .. (on and "|cff00ff00on|r" or "|cffff5555off|r")
-          .. (on and ". |cff00ff00/la reset <id>|r resets one achievement." or ".")
+          .. (on and ". |cff00ff00/cg reset <id>|r resets one achievement." or ".")
       )
     else
       DEFAULT_CHAT_FRAME:AddMessage(
-        "|cffffd100Laucob's Achievements|r: usage |cff00ff00/la debug|r, |cff00ff00/la debug on|r, or |cff00ff00/la debug off|r"
+        "|cffffd100Classic Glory|r: usage |cff00ff00/cg debug|r, |cff00ff00/cg debug on|r, or |cff00ff00/cg debug off|r"
       )
     end
     return
@@ -523,21 +534,21 @@ SlashCmdList["LAUCOBSACHIEVEMENTS"] = function(msg)
     if arg ~= "" then
       if not LA:IsDebug() then
         DEFAULT_CHAT_FRAME:AddMessage(
-          "|cffffd100Laucob's Achievements|r: enable debug first with |cff00ff00/la debug on|r"
+          "|cffffd100Classic Glory|r: enable debug first with |cff00ff00/cg debug on|r"
         )
         return
       end
       local id = tonumber(arg)
       if not id then
         DEFAULT_CHAT_FRAME:AddMessage(
-          "|cffffd100Laucob's Achievements|r: usage |cff00ff00/la reset|r or |cff00ff00/la reset <id>|r"
+          "|cffffd100Classic Glory|r: usage |cff00ff00/cg reset|r or |cff00ff00/cg reset <id>|r"
         )
         return
       end
       local ok, detail = LA:ResetAchievement(id)
       if ok then
         DEFAULT_CHAT_FRAME:AddMessage(
-          "|cffffd100Laucob's Achievements|r: reset |cff00ff00"
+          "|cffffd100Classic Glory|r: reset |cff00ff00"
             .. detail.title
             .. "|r ("
             .. id
@@ -545,7 +556,7 @@ SlashCmdList["LAUCOBSACHIEVEMENTS"] = function(msg)
         )
       else
         DEFAULT_CHAT_FRAME:AddMessage(
-          "|cffffd100Laucob's Achievements|r: " .. tostring(detail)
+          "|cffffd100Classic Glory|r: " .. tostring(detail)
         )
       end
       return
@@ -556,7 +567,7 @@ SlashCmdList["LAUCOBSACHIEVEMENTS"] = function(msg)
     if LA.Tracker and LA.Tracker.ClearAchievementState then
       LA.Tracker:ClearAchievementState()
     end
-    DEFAULT_CHAT_FRAME:AddMessage("|cffffd100Laucob's Achievements|r: progress reset for this character.")
+    DEFAULT_CHAT_FRAME:AddMessage("|cffffd100Classic Glory|r: progress reset for this character.")
     if LA.UI and LA.UI.Refresh then
       LA.UI:Refresh()
     end
@@ -566,21 +577,21 @@ SlashCmdList["LAUCOBSACHIEVEMENTS"] = function(msg)
   if cmd == "share" then
     local arg = rest:lower():match("^%s*(.-)%s*$")
     if not LA.Share then
-      DEFAULT_CHAT_FRAME:AddMessage("|cffffd100Laucob's Achievements|r: sharing unavailable.")
+      DEFAULT_CHAT_FRAME:AddMessage("|cffffd100Classic Glory|r: sharing unavailable.")
       return
     end
     if arg == "on" or arg == "1" or arg == "enable" then
       LA.Share:SetEnabled(true)
-      DEFAULT_CHAT_FRAME:AddMessage("|cffffd100Laucob's Achievements|r: sharing |cff00ff00enabled|r.")
+      DEFAULT_CHAT_FRAME:AddMessage("|cffffd100Classic Glory|r: sharing |cff00ff00enabled|r.")
     elseif arg == "off" or arg == "0" or arg == "disable" then
       LA.Share:SetEnabled(false)
-      DEFAULT_CHAT_FRAME:AddMessage("|cffffd100Laucob's Achievements|r: sharing |cffff5555disabled|r.")
+      DEFAULT_CHAT_FRAME:AddMessage("|cffffd100Classic Glory|r: sharing |cffff5555disabled|r.")
     else
       local on = LA.Share:IsEnabled()
       DEFAULT_CHAT_FRAME:AddMessage(
-        "|cffffd100Laucob's Achievements|r: sharing is "
+        "|cffffd100Classic Glory|r: sharing is "
           .. (on and "|cff00ff00on|r" or "|cffff5555off|r")
-          .. ". Use |cff00ff00/la share on|r or |cff00ff00/la share off|r."
+          .. ". Use |cff00ff00/cg share on|r or |cff00ff00/cg share off|r."
       )
     end
     return
@@ -588,13 +599,13 @@ SlashCmdList["LAUCOBSACHIEVEMENTS"] = function(msg)
 
   if cmd == "inspect" then
     if not LA.Share then
-      DEFAULT_CHAT_FRAME:AddMessage("|cffffd100Laucob's Achievements|r: sharing unavailable.")
+      DEFAULT_CHAT_FRAME:AddMessage("|cffffd100Classic Glory|r: sharing unavailable.")
       return
     end
     local ok, result = LA.Share:InspectTargetOrName(rest ~= "" and rest or nil)
     if ok then
       DEFAULT_CHAT_FRAME:AddMessage(
-        "|cffffd100Laucob's Achievements|r: requesting achievements from |cff00ff00"
+        "|cffffd100Classic Glory|r: requesting achievements from |cff00ff00"
           .. tostring(result)
           .. "|r..."
       )
@@ -607,12 +618,12 @@ SlashCmdList["LAUCOBSACHIEVEMENTS"] = function(msg)
       end)
       if not shown then
         DEFAULT_CHAT_FRAME:AddMessage(
-          "|cffff5555Laucob's Achievements|r: UI error while inspecting: " .. tostring(err)
+          "|cffff5555Classic Glory|r: UI error while inspecting: " .. tostring(err)
         )
       end
     else
       DEFAULT_CHAT_FRAME:AddMessage(
-        "|cffffd100Laucob's Achievements|r: " .. (result or "inspect failed.")
+        "|cffffd100Classic Glory|r: " .. (result or "inspect failed.")
       )
     end
     return
@@ -621,10 +632,10 @@ SlashCmdList["LAUCOBSACHIEVEMENTS"] = function(msg)
   if cmd == "web" then
     LA:RefreshCharacterMeta()
     DEFAULT_CHAT_FRAME:AddMessage(
-      "|cffffd100Laucob's Achievements|r pairs with the website: track in-game, then publish characters to public leaderboards."
+      "|cffffd100Classic Glory|r pairs with the website: track in-game, then publish characters to public leaderboards."
     )
     DEFAULT_CHAT_FRAME:AddMessage(
-      "  Log out, then upload |cff00ff00LaucobsAchievements.lua|r from:"
+      "  Log out, then upload |cff00ff00ClassicGlory.lua|r from:"
     )
     DEFAULT_CHAT_FRAME:AddMessage(
       "  |cffaaaaaaWTF\\Account\\<Account>\\SavedVariables\\|r"

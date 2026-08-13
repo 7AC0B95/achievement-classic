@@ -1,5 +1,5 @@
 --[[
-  LaucobsAchievements - Data
+  Classic Glory - Data
   Static achievement definitions and categories.
   Player completion/progress lives in SavedVariables (see Core.lua).
 ]]

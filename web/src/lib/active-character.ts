@@ -1,6 +1,6 @@
 import type { CharacterRow } from "@/lib/types";
 
-export const ACTIVE_CHARACTER_COOKIE = "laucobs_active_character";
+export const ACTIVE_CHARACTER_COOKIE = "classic_glory_active_character";
 
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;

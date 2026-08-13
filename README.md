@@ -1,4 +1,4 @@
-# Laucob's Achievements
+# Classic Glory
 
 Retail-style achievement tracking for **World of Warcraft Classic Era / Hardcore** (addon **v0.4.0**), plus a web platform to share progress on public leaderboards.
 
@@ -8,21 +8,31 @@ Retail-style achievement tracking for **World of Warcraft Classic Era / Hardcore
 
 | Piece | Path | Role |
 | --- | --- | --- |
-| WoW Addon | [`LaucobsAchievements/`](LaucobsAchievements/) | Tracks events, unlocks achievements, peer share, writes account-wide SavedVariables |
+| WoW Addon | [`ClassicGlory/`](ClassicGlory/) | Tracks events, unlocks achievements, peer share, writes account-wide SavedVariables |
 | Web App | [`web/`](web/) | Leaderboards, dashboard, Lua upload / multi-character sync |
 | Database | [`supabase/migrations/`](supabase/migrations/) | Profiles, characters, achievements, RLS, catalog seed |
 
-Data flow: **Addon → `LaucobsAchievements.lua` → Browser file picker → Lua parser → Supabase upsert**.
+Data flow: **Addon → `ClassicGlory.lua` → Browser file picker → Lua parser → Supabase upsert**.
 
 ---
 
 ## 1. Install the addon (play)
 
-Copy the `LaucobsAchievements` folder into:
+Copy the `ClassicGlory` folder into:
 
 `World of Warcraft\_classic_era_\Interface\AddOns\`
 
-Then `/reload` in-game.
+Then `/reload` in-game. Remove the old `LaucobsAchievements` folder if it is still there.
+
+If you already had progress, copy:
+
+`WTF\Account\<Account>\SavedVariables\LaucobsAchievements.lua`
+
+to:
+
+`WTF\Account\<Account>\SavedVariables\ClassicGlory.lua`
+
+The addon also adopts `LaucobsAchievementsDB` if that global is still in the copied file.
 
 ### Develop
 
@@ -36,20 +46,22 @@ This repo is the **source of truth**. Sync to the game folder (PowerShell):
 
 | Command | Action |
 |---------|--------|
-| `/la` | Open the achievements panel |
-| `/la web` | Show where to find the upload file for the website |
-| `/la debug` | Toggle debug mode |
-| `/la debug on\|off` | Enable/disable debug mode |
-| `/la reset` | Reset this character's progress |
-| `/la reset <id>` | Reset one achievement (requires debug) |
-| `/la share` | Show sharing status |
-| `/la share on\|off` | Enable/disable peer sharing |
-| `/la inspect` | Request achievements from your current target |
-| `/la inspect Name` | Request achievements from a named player |
+| `/cg` | Open the achievements panel |
+| `/cg web` | Show where to find the upload file for the website |
+| `/cg debug` | Toggle debug mode |
+| `/cg debug on\|off` | Enable/disable debug mode |
+| `/cg reset` | Reset this character's progress |
+| `/cg reset <id>` | Reset one achievement (requires debug) |
+| `/cg share` | Show sharing status |
+| `/cg share on\|off` | Enable/disable peer sharing |
+| `/cg inspect` | Request achievements from your current target |
+| `/cg inspect Name` | Request achievements from a named player |
+
+`/la`, `/classicglory`, `/laach`, and `/lachievements` still work as aliases.
 
 ### In-game sharing
 
-Completed achievements can be browsed for other players who use the addon (guild, party, raid, or `/la inspect`). Sharing is on by default; turn off with `/la share off`.
+Completed achievements can be browsed for other players who use the addon (guild, party, raid, or `/cg inspect`). Sharing is on by default; turn off with `/cg share off`.
 
 Open the **Players** sidebar to browse peers. The list is searchable by name, filterable by addon status (All / Addon / Pending / No addon), and grouped into Group/Raid, Guild, and Inspected.
 
@@ -60,14 +72,14 @@ Open the **Players** sidebar to browse peers. The list is searchable by name, fi
 After playing, **log out** so WoW flushes SavedVariables. Upload this **account-wide** file on the dashboard:
 
 ```
-World of Warcraft\_classic_era_\WTF\Account\<Account>\SavedVariables\LaucobsAchievements.lua
+World of Warcraft\_classic_era_\WTF\Account\<Account>\SavedVariables\ClassicGlory.lua
 ```
 
-One file contains every character on the account. The dashboard lists them so you can sync selected characters (or all).
+One file contains every character on the account. The dashboard lists them so you can sync selected characters (or all). Older `LaucobsAchievements.lua` uploads still work.
 
-In-game tip: `/la web`.
+In-game tip: `/cg web`.
 
-A sample file for parser testing lives at [`web/sample-LaucobsAchievements.lua`](web/sample-LaucobsAchievements.lua).
+A sample file for parser testing lives at [`web/sample-ClassicGlory.lua`](web/sample-ClassicGlory.lua).
 
 ---
 
@@ -108,7 +120,7 @@ Without env vars the UI still loads; leaderboard and live activity stay empty un
 
 ### Regenerating the catalog from the addon
 
-When [`LaucobsAchievements/Data.lua`](LaucobsAchievements/Data.lua) changes:
+When [`ClassicGlory/Data.lua`](ClassicGlory/Data.lua) changes:
 
 ```bash
 node scripts/extract-achievements.mjs

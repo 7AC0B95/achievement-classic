@@ -3,12 +3,12 @@
 import { get, set, del } from "idb-keyval";
 import { useCallback, useEffect, useState } from "react";
 import { syncCharacterFromAddon, type SyncResult } from "@/actions/sync";
-import { parseLaucobsAchievementsDB } from "@/lib/lua-parser";
-import type { ParsedCharacterBundle, ParsedLaucobsDB } from "@/lib/types";
+import { parseClassicGloryDB } from "@/lib/lua-parser";
+import type { ParsedCharacterBundle, ParsedClassicGloryDB } from "@/lib/types";
 
-const FILE_HANDLE_KEY = "laucobs:achievements-file-handle";
-const LAST_LUA_TEXT_KEY = "laucobs:last-lua-text";
-const LAST_LUA_NAME_KEY = "laucobs:last-lua-name";
+const FILE_HANDLE_KEY = "classic-glory:achievements-file-handle";
+const LAST_LUA_TEXT_KEY = "classic-glory:last-lua-text";
+const LAST_LUA_NAME_KEY = "classic-glory:last-lua-name";
 
 export type WowSyncStatus =
   | "idle"
@@ -24,7 +24,7 @@ interface UseWowSyncState {
   status: WowSyncStatus;
   source: WowSyncSource;
   fileName: string | null;
-  parsed: ParsedLaucobsDB | null;
+  parsed: ParsedClassicGloryDB | null;
   lastSyncedAt: Date | null;
   error: string | null;
   syncMessage: string | null;
@@ -96,7 +96,7 @@ export function useWowSync() {
         const cachedText = await get<string>(LAST_LUA_TEXT_KEY);
         if (cachedName && cachedText) {
           try {
-            const parsed = parseLaucobsAchievementsDB(cachedText);
+            const parsed = parseClassicGloryDB(cachedText);
             setState((s) => ({
               ...s,
               status: "connected",
@@ -129,7 +129,7 @@ export function useWowSync() {
         error: null,
         syncMessage: null,
       }));
-      const parsed = parseLaucobsAchievementsDB(text);
+      const parsed = parseClassicGloryDB(text);
       setState((s) => ({
         ...s,
         status: "connected",
@@ -144,7 +144,7 @@ export function useWowSync() {
   );
 
   const uploadFile = useCallback(
-    async (file: File): Promise<ParsedLaucobsDB> => {
+    async (file: File): Promise<ParsedClassicGloryDB> => {
       if (!file.name.toLowerCase().endsWith(".lua")) {
         throw new Error("Please choose a .lua SavedVariables file.");
       }
@@ -205,7 +205,7 @@ export function useWowSync() {
         ...s,
         status: "error",
         error: looksBlocked
-          ? "Browsers block linking files inside the WoW / Program Files folder. Use Upload instead, or copy LaucobsAchievements.lua to Documents and link that copy."
+          ? "Browsers block linking files inside the WoW / Program Files folder. Use Upload instead, or copy ClassicGlory.lua to Documents and link that copy."
           : message,
       }));
     }
@@ -228,7 +228,7 @@ export function useWowSync() {
     });
   }, []);
 
-  const readAndParse = useCallback(async (): Promise<ParsedLaucobsDB> => {
+  const readAndParse = useCallback(async (): Promise<ParsedClassicGloryDB> => {
     setState((s) => ({ ...s, status: "reading", error: null }));
 
     const handle = await get<FileSystemFileHandle>(FILE_HANDLE_KEY);
@@ -243,7 +243,7 @@ export function useWowSync() {
       return ingestLuaText(cachedName, cachedText, "upload");
     }
 
-    throw new Error("No SavedVariables file loaded. Upload LaucobsAchievements.lua first.");
+    throw new Error("No SavedVariables file loaded. Upload ClassicGlory.lua first.");
   }, [ingestLuaText]);
 
   const syncBundle = useCallback(
@@ -302,7 +302,7 @@ export function useWowSync() {
   );
 
   const uploadAndParse = useCallback(
-    async (file: File): Promise<ParsedLaucobsDB | null> => {
+    async (file: File): Promise<ParsedClassicGloryDB | null> => {
       try {
         return await uploadFile(file);
       } catch (error) {
@@ -323,7 +323,7 @@ export function useWowSync() {
     async (keys?: string[]): Promise<SyncResult> => {
       try {
         const handle = await get<FileSystemFileHandle>(FILE_HANDLE_KEY);
-        let parsed: ParsedLaucobsDB;
+        let parsed: ParsedClassicGloryDB;
         if (handle) {
           const text = await readHandleText(handle);
           parsed = await ingestLuaText(handle.name, text, "handle");

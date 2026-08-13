@@ -5,7 +5,7 @@ import { fileURLToPath } from "url";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(__dirname, "..");
 const lua = fs.readFileSync(
-  path.join(root, "LaucobsAchievements", "Data.lua"),
+  path.join(root, "ClassicGlory", "Data.lua"),
   "utf8",
 );
 
@@ -105,7 +105,7 @@ const sqlRows = achievements.map((a) => {
   return `  ('${sqlEscape(a.id)}', '${sqlEscape(a.name)}', '${sqlEscape(a.description)}', '${sqlEscape(a.category)}', ${a.points}, ${icon})`;
 });
 
-const sql = `-- Seed Laucobs Achievements catalog (${achievements.length} achievements)
+const sql = `-- Seed Classic Glory catalog (${achievements.length} achievements)
 insert into public.achievements (id, name, description, category, points, icon)
 values
 ${sqlRows.join(",\n")}

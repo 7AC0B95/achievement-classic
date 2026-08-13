@@ -7,7 +7,7 @@ import {
   ACTIVE_CHARACTER_COOKIE,
   resolveActiveCharacter,
 } from "@/lib/active-character";
-import { ADDON_DOWNLOAD_COLLAPSED_COOKIE } from "@/lib/addon";
+import { ADDON_DOWNLOAD_COLLAPSED_COOKIE, ADDON_SAVED_VARIABLES_FILE } from "@/lib/addon";
 import { fetchUserCharacters } from "@/lib/data";
 import { cookies } from "next/headers";
 
@@ -70,7 +70,7 @@ export default async function DashboardPage() {
               <span className="rounded bg-amber-500/15 px-1 font-semibold text-amber-300">
                 {"<Account>"}
               </span>
-              {"\\SavedVariables\\LaucobsAchievements.lua"}
+              {`\\SavedVariables\\${ADDON_SAVED_VARIABLES_FILE}`}
             </code>
             <p className="mt-2 text-xs text-zinc-600">
               Replace the highlighted part with your Battle.net account folder

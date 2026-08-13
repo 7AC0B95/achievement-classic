@@ -35,7 +35,7 @@ export function Navbar({
             <Crown className="h-4.5 w-4.5" />
           </span>
           <span className="font-[family-name:var(--font-display)] text-lg tracking-wide text-zinc-50">
-            Laucob<span className="text-amber-400">&apos;s</span> Achievements
+            Classic <span className="text-amber-400">Glory</span>
           </span>
         </Link>
 

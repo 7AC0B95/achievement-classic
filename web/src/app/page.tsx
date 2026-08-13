@@ -32,8 +32,8 @@ export default async function HomePage() {
             </h1>
             <p className="mt-5 max-w-xl text-base leading-relaxed text-zinc-400 sm:text-lg">
               The in-game addon tracks 190+ custom achievements. This website
-              publishes them — upload your account-wide SavedVariables file and
-              climb the global leaderboards.
+              publishes them — upload your progress and climb the global
+              leaderboards.
             </p>
             <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
               <AddonDownloadButton className="w-full justify-center sm:w-auto">Download the addon</AddonDownloadButton>

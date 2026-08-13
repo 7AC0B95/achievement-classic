@@ -80,7 +80,9 @@ export function FileSyncPanel() {
             <code className="rounded bg-zinc-950 px-1.5 py-0.5 text-amber-300">
               {ADDON_SAVED_VARIABLES_FILE}
             </code>
-            . Find it in your Classic Era install at{" "}
+            .
+            <br />
+            Find it in your Classic Era install at{" "}
             <code className="rounded bg-zinc-950 px-1.5 py-0.5 text-zinc-300">
               {"_classic_era_\\WTF\\Account\\<Account>\\SavedVariables\\"}
             </code>

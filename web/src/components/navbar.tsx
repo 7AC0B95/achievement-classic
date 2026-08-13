@@ -12,7 +12,6 @@ const LINKS = [
   { href: "/", label: "Home" },
   { href: "/leaderboard", label: "Leaderboard" },
   { href: "/achievements", label: "Achievements" },
-  { href: "/dashboard", label: "Dashboard" },
 ];
 
 interface NavbarProps {
@@ -25,6 +24,7 @@ export function Navbar({
   selectedId = null,
 }: NavbarProps) {
   const pathname = usePathname();
+  const connectActive = pathname.startsWith("/dashboard");
   const [open, setOpen] = useState(false);
 
   useEffect(() => {
@@ -86,7 +86,12 @@ export function Navbar({
           ) : null}
           <Link
             href="/dashboard"
-            className="inline-flex items-center gap-2 rounded-md bg-amber-500 px-3.5 py-2 text-sm font-semibold text-zinc-950 transition hover:bg-amber-400"
+            className={cn(
+              "inline-flex items-center gap-2 rounded-md px-3.5 py-2 text-sm font-semibold text-zinc-950 transition",
+              connectActive
+                ? "bg-amber-400 ring-1 ring-amber-200/50"
+                : "bg-amber-500 hover:bg-amber-400",
+            )}
           >
             <Trophy className="h-4 w-4" />
             Connect
@@ -146,7 +151,12 @@ export function Navbar({
             <Link
               href="/dashboard"
               onClick={() => setOpen(false)}
-              className="mt-1 inline-flex min-h-11 items-center justify-center gap-2 rounded-md bg-amber-500 px-3 py-3 text-sm font-semibold text-zinc-950"
+              className={cn(
+                "mt-1 inline-flex min-h-11 items-center justify-center gap-2 rounded-md px-3 py-3 text-sm font-semibold text-zinc-950",
+                connectActive
+                  ? "bg-amber-400 ring-1 ring-amber-200/50"
+                  : "bg-amber-500",
+              )}
             >
               <Trophy className="h-4 w-4" />
               Connect

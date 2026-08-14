@@ -1,6 +1,6 @@
 # Classic Glory
 
-Retail-style achievement tracking for **World of Warcraft Classic Era / Hardcore** (addon **v0.6.1**), plus a web platform to share progress on public leaderboards.
+Retail-style achievement tracking for **World of Warcraft Classic Era / Hardcore** (addon **v0.7.0**), plus a web platform to share progress on public leaderboards.
 
 **190+ achievements** across 10 categories: General, Quests, Combat, Exploration, Wealth, Professions, Dungeons, PvP, Hardcore, and Feats of Strength.
 
@@ -58,6 +58,12 @@ This repo is the **source of truth**. Sync to the game folder (PowerShell):
 | `/cg inspect Name` | Request achievements from a named player |
 
 `/la`, `/classicglory`, `/laach`, and `/lachievements` still work as aliases.
+
+### In-game panel
+
+`/cg` opens on **Summary**: overall points and earned count, per-category progress, the last three earns, and up to three almost-finished achievements.
+
+Category lists are searchable (title and description; a query searches every category). Filter with All / Earned / Incomplete / Almost, and sort with Default / Recent / Points / A-Z. Hover a card for criteria progress.
 
 ### In-game sharing
 

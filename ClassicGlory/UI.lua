@@ -19,6 +19,10 @@ local ICON_SIZE = 62
 local CARD_PAD = 18
 local CAT_BTN_H = 36
 local CAT_BTN_GAP = 8
+local SUMMARY_ID = "__summary"
+local LIST_TOOLBAR_H = 58
+local SUM_CAT_H = 22
+local SUM_MINI_H = 36
 
 local FONT = "Fonts\\FRIZQT__.TTF"
 
@@ -27,15 +31,77 @@ local categoryButtons = {}
 local cardPool = {}
 local peerCardPool = {}
 local peerHeaderPool = {}
+local summaryCatPool = {}
+local summaryHeaderPool = {}
+local summaryMiniPool = {}
 local viewingPeer -- fullName when inspecting another player; nil = self
 local playersMode = false -- true when sidebar "Players" list is shown
+local summaryMode = false
 local playersBtn
+local summaryBtn
 local youBtn
 local playerSearchText = ""
 local playerStatusFilter = "all" -- all | addon | pending | noaddon
-local PLAYERS_TOOLBAR_H = 58
+local achievementSearchText = ""
 local SCROLL_TOP_DEFAULT = -50
-local SCROLL_TOP_PLAYERS = -(50 + PLAYERS_TOOLBAR_H)
+local SCROLL_TOP_TOOLBAR = -(50 + LIST_TOOLBAR_H)
+
+local PopulateSummary, RelayoutMain
+
+local SORT_CYCLE = { "default", "recent", "points", "name" }
+local SORT_LABELS = {
+  default = "Default",
+  recent = "Recent",
+  points = "Points",
+  name = "A-Z",
+}
+local VALID_FILTER = {
+  all = true,
+  earned = true,
+  incomplete = true,
+  almost = true,
+  shared = true,
+  them = true,
+  you = true,
+}
+local VALID_SORT = {
+  default = true,
+  recent = true,
+  points = true,
+  name = true,
+}
+local ACH_FILTER_DEFS = {
+  { id = "all",        label = "All",        width = 48, when = "both" },
+  { id = "earned",     label = "Earned",     width = 58, when = "both" },
+  { id = "incomplete", label = "Incomplete", width = 82, when = "both" },
+  { id = "almost",     label = "Almost",     width = 62, when = "self" },
+  { id = "shared",     label = "Shared",     width = 58, when = "peer" },
+  { id = "them",       label = "Them",       width = 50, when = "peer" },
+  { id = "you",        label = "You",        width = 44, when = "peer" },
+}
+local CRIT_LABELS = {
+  LEVEL = "Level",
+  DEATHLESS = "Deathless",
+  MONEY = "Gold looted",
+  HEALTH = "Survive",
+  KILLS = "Kills",
+  QUESTS = "Quests",
+  ZONE = "Visit",
+  ZONES = "Zones",
+  DEATHS = "Deaths",
+  CLASS = "Class",
+  RACE = "Race",
+  FACTION = "Faction",
+  DUELS = "Duels",
+  LOOT = "Loot",
+  CRITS = "Crits",
+  EMOTES = "Emotes",
+  INSTANCE = "Instance",
+  REP = "Reputation",
+  SKILL = "Skill",
+  META = "Achievements",
+  LOGIN = "Login",
+}
 
 local PLAYER_SECTIONS = {
   { id = "group",   title = "Group / Raid" },
@@ -43,6 +109,55 @@ local PLAYER_SECTIONS = {
   { id = "inspect", title = "Inspected" },
   { id = "other",   title = "Other" },
 }
+
+local CHIP_BACKDROP = {
+  bgFile   = "Interface\\Tooltips\\UI-Tooltip-Background",
+  edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
+  tile = true, tileSize = 8, edgeSize = 10,
+  insets = { left = 2, right = 2, top = 2, bottom = 2 },
+}
+
+local function IsDefVisible(def)
+  if not def then
+    return false
+  end
+  if def.hcOnly and not (LA.IsHardcoreActive and LA:IsHardcoreActive()) then
+    return false
+  end
+  return true
+end
+
+local function GetUIPrefs()
+  local db = LA.db or ClassicGloryDB
+  if type(db) ~= "table" then
+    return { achFilter = "all", achSort = "default" }
+  end
+  if type(db.ui) ~= "table" then
+    db.ui = {}
+  end
+  if not VALID_FILTER[db.ui.achFilter] then
+    db.ui.achFilter = "all"
+  end
+  if not VALID_SORT[db.ui.achSort] then
+    db.ui.achSort = "default"
+  end
+  return db.ui
+end
+
+local function NormalizeAchFilter()
+  local ui = GetUIPrefs()
+  local f = ui.achFilter
+  if viewingPeer then
+    if f == "almost" then
+      ui.achFilter = "all"
+    end
+  else
+    if f == "shared" or f == "them" or f == "you" then
+      ui.achFilter = "all"
+    end
+  end
+  return ui.achFilter
+end
 
 local function IsShownComplete(achievementId)
   if viewingPeer and LA.Share then
@@ -78,8 +193,40 @@ local function GetShownPoints()
   return LA:GetEarnedPoints() or 0
 end
 
+local function CollectVisibleDefs(categoryId)
+  local list = {}
+  if categoryId then
+    for _, def in ipairs(LA:GetAchievementsByCategory(categoryId)) do
+      if IsDefVisible(def) then
+        list[#list + 1] = def
+      end
+    end
+  else
+    for _, def in pairs(LA.Achievements or {}) do
+      if IsDefVisible(def) then
+        list[#list + 1] = def
+      end
+    end
+    table.sort(list, function(a, b)
+      return a.id < b.id
+    end)
+  end
+  return list
+end
+
+local function CountCategoryProgress(categoryId)
+  local earned, total = 0, 0
+  for _, def in ipairs(CollectVisibleDefs(categoryId)) do
+    total = total + 1
+    if IsShownComplete(def.id) then
+      earned = earned + 1
+    end
+  end
+  return earned, total
+end
+
 local function GetCompareCounts(categoryId)
-  local list = LA:GetAchievementsByCategory(categoryId)
+  local list = CollectVisibleDefs(categoryId)
   local them, you, both, total = 0, 0, 0, #list
   for _, def in ipairs(list) do
     local peerDone = LA.Share and LA.Share:IsPeerComplete(viewingPeer, def.id)
@@ -187,6 +334,182 @@ local function FormatProgress(current, required)
     return g(current) .. " / " .. g(required)
   end
   return current .. " / " .. required
+end
+
+local function SetBarColor(bar, pct)
+  if pct >= 1 then
+    bar:SetStatusBarColor(0.25, 0.80, 0.25)
+  elseif pct >= 0.5 then
+    bar:SetStatusBarColor(0.85, 0.70, 0.15)
+  else
+    bar:SetStatusBarColor(0.55, 0.45, 0.15)
+  end
+end
+
+local function AchievementMatchesSearch(def, query)
+  if not query or query == "" then
+    return true
+  end
+  local q = strlower(query)
+  local title = strlower(def.title or "")
+  local desc = strlower(def.description or "")
+  return title:find(q, 1, true) or desc:find(q, 1, true)
+end
+
+local function AchievementMatchesFilter(def, filter)
+  if not filter or filter == "all" then
+    return true
+  end
+  local complete = IsShownComplete(def.id)
+  if filter == "earned" then
+    return complete
+  elseif filter == "incomplete" then
+    return not complete
+  elseif filter == "almost" then
+    if complete then
+      return false
+    end
+    local current = GetShownProgress(def.id)
+    return current > 0
+  elseif filter == "shared" then
+    return viewingPeer and complete and LA:IsComplete(def.id)
+  elseif filter == "them" then
+    return viewingPeer and complete and not LA:IsComplete(def.id)
+  elseif filter == "you" then
+    return viewingPeer and (not complete) and LA:IsComplete(def.id)
+  end
+  return true
+end
+
+local function SortAchievements(list, mode)
+  local sortMode = mode
+  if viewingPeer and sortMode == "recent" then
+    sortMode = "default"
+  end
+  table.sort(list, function(a, b)
+    if sortMode == "recent" then
+      local ca = IsShownComplete(a.id)
+      local cb = IsShownComplete(b.id)
+      if ca ~= cb then
+        return ca
+      end
+      local da = GetShownEarnedDate(a.id) or 0
+      local db_ = GetShownEarnedDate(b.id) or 0
+      if da ~= db_ then
+        return da > db_
+      end
+      return a.id < b.id
+    elseif sortMode == "points" then
+      local pa = a.points or 0
+      local pb = b.points or 0
+      if pa ~= pb then
+        return pa > pb
+      end
+      return a.id < b.id
+    elseif sortMode == "name" then
+      local ta = strlower(a.title or "")
+      local tb = strlower(b.title or "")
+      if ta ~= tb then
+        return ta < tb
+      end
+      return a.id < b.id
+    end
+    return a.id < b.id
+  end)
+end
+
+local function ApplyChipVisual(btn, active)
+  if not btn then
+    return
+  end
+  btn.active = active
+  if active then
+    btn:SetBackdropBorderColor(0.95, 0.80, 0.30, 1)
+    btn:SetBackdropColor(0.35, 0.26, 0.08, 0.95)
+    Color(btn.label, "gold")
+  else
+    btn:SetBackdropBorderColor(unpack(C.borderDim))
+    btn:SetBackdropColor(0.12, 0.10, 0.06, 0.9)
+    btn.label:SetTextColor(0.75, 0.70, 0.55, 1)
+  end
+end
+
+local function MakeChipButton(parent, def)
+  local btn = CreateFrame("Button", nil, parent, "BackdropTemplate")
+  btn:SetSize(def.width, 22)
+  btn:SetBackdrop({
+    bgFile   = CHIP_BACKDROP.bgFile,
+    edgeFile = CHIP_BACKDROP.edgeFile,
+    tile = CHIP_BACKDROP.tile,
+    tileSize = CHIP_BACKDROP.tileSize,
+    edgeSize = CHIP_BACKDROP.edgeSize,
+    insets = { left = 2, right = 2, top = 2, bottom = 2 },
+  })
+  btn:SetBackdropColor(0.12, 0.10, 0.06, 0.9)
+  btn:SetBackdropBorderColor(unpack(C.borderDim))
+
+  local flabel = btn:CreateFontString(nil, "OVERLAY")
+  SetFS(flabel, 11)
+  flabel:SetPoint("CENTER")
+  flabel:SetText(def.label)
+  flabel:SetTextColor(0.75, 0.70, 0.55, 1)
+  btn.label = flabel
+  btn.filterId = def.id
+  return btn
+end
+
+local function CritTooltipLine(def, crit, index)
+  local target = crit.value or 1
+  local prog
+  if viewingPeer then
+    prog = IsShownComplete(def.id) and target or 0
+  else
+    prog = LA:GetProgress(def.id, index) or 0
+  end
+  if prog > target then
+    prog = target
+  end
+  local label = CRIT_LABELS[crit.type] or crit.type or "Progress"
+  if crit.match and crit.match ~= "" then
+    label = label .. " (" .. crit.match .. ")"
+  elseif crit.standing and crit.standing ~= "" then
+    label = label .. " (" .. crit.standing .. ")"
+  end
+  return label, FormatProgress(prog, target), prog >= target
+end
+
+local function ShowAchievementTooltip(card)
+  local def = card and card.def
+  if not def then
+    return
+  end
+  GameTooltip:SetOwner(card, "ANCHOR_RIGHT")
+  GameTooltip:AddLine(def.title or "", 1, 0.82, 0)
+  if def.description and def.description ~= "" then
+    GameTooltip:AddLine(def.description, 0.90, 0.85, 0.70, true)
+  end
+  local pts = def.points or 0
+  if pts > 0 then
+    GameTooltip:AddLine(pts .. " points", 0.90, 0.75, 0.20)
+  else
+    GameTooltip:AddLine("Feat of Strength", 0.90, 0.75, 0.20)
+  end
+  local earned = GetShownEarnedDate(def.id)
+  if earned then
+    GameTooltip:AddLine("Earned " .. FormatDate(earned), 0.25, 0.75, 0.25)
+  end
+  if def.criteria and #def.criteria > 0 then
+    GameTooltip:AddLine(" ")
+    for i, crit in ipairs(def.criteria) do
+      local label, value, done = CritTooltipLine(def, crit, i)
+      if done then
+        GameTooltip:AddDoubleLine(label, value, 0.85, 0.80, 0.65, 0.25, 0.80, 0.25)
+      else
+        GameTooltip:AddDoubleLine(label, value, 0.85, 0.80, 0.65, 0.70, 0.65, 0.50)
+      end
+    end
+  end
+  GameTooltip:Show()
 end
 
 local function Solid(parent, layer, r, g, b, a)
@@ -452,6 +775,7 @@ local function AcquireCard(parent, index)
   hl:SetAllPoints()
   card:SetScript("OnEnter", function(self)
     self:SetBackdropBorderColor(0.95, 0.80, 0.30, 1)
+    ShowAchievementTooltip(self)
   end)
   card:SetScript("OnLeave", function(self)
     if self._borderR then
@@ -464,6 +788,7 @@ local function AcquireCard(parent, index)
         self:SetBackdropBorderColor(unpack(C.borderDim))
       end
     end
+    GameTooltip:Hide()
   end)
 
   cardPool[index] = card
@@ -618,21 +943,145 @@ local function HidePeerCards()
   ReleasePeerHeadersFrom(1)
 end
 
-local function SetPlayersToolbarVisible(visible)
-  local bar = UI.playersToolbar
-  local scrollFrame = UI.scrollFrame
-  if bar then
-    if visible then
-      bar:Show()
-    else
-      bar:Hide()
+local function ReleaseSummaryCatFrom(startIndex)
+  for i = startIndex, #summaryCatPool do
+    summaryCatPool[i]:Hide()
+  end
+end
+
+local function ReleaseSummaryHeadersFrom(startIndex)
+  for i = startIndex, #summaryHeaderPool do
+    summaryHeaderPool[i]:Hide()
+  end
+end
+
+local function ReleaseSummaryMinisFrom(startIndex)
+  for i = startIndex, #summaryMiniPool do
+    summaryMiniPool[i]:Hide()
+    summaryMiniPool[i].def = nil
+  end
+end
+
+local function HideSummaryWidgets()
+  if UI.summaryOverall then
+    UI.summaryOverall:Hide()
+  end
+  ReleaseSummaryCatFrom(1)
+  ReleaseSummaryHeadersFrom(1)
+  ReleaseSummaryMinisFrom(1)
+end
+
+local function HideEmptyState()
+  if UI.emptyLabel then
+    UI.emptyLabel:Hide()
+  end
+end
+
+local function ShowEmptyState(parent, text)
+  local fs = UI.emptyLabel
+  if not fs then
+    fs = parent:CreateFontString(nil, "OVERLAY")
+    SetFS(fs, 13)
+    fs:SetJustifyH("LEFT")
+    fs:SetTextColor(0.70, 0.64, 0.50, 1)
+    UI.emptyLabel = fs
+  end
+  fs:ClearAllPoints()
+  fs:SetPoint("TOPLEFT", parent, "TOPLEFT", 8, -12)
+  fs:SetPoint("TOPRIGHT", parent, "TOPRIGHT", -8, -12)
+  fs:SetText(text or "No achievements match.")
+  fs:Show()
+end
+
+local function UpdateAchSortButton()
+  local bar = UI.achToolbar
+  if not bar or not bar.sortBtn then
+    return
+  end
+  local ui = GetUIPrefs()
+  local mode = ui.achSort or "default"
+  bar.sortBtn.label:SetText("Sort: " .. (SORT_LABELS[mode] or "Default"))
+  ApplyChipVisual(bar.sortBtn, true)
+end
+
+local function UpdateAchFilterButtons()
+  local bar = UI.achToolbar
+  if not bar or not bar.filterButtons then
+    return
+  end
+  local filter = NormalizeAchFilter()
+  local x = 4
+  for _, def in ipairs(ACH_FILTER_DEFS) do
+    local btn = bar.filterButtons[def.id]
+    if btn then
+      local show = def.when == "both"
+        or (def.when == "self" and not viewingPeer)
+        or (def.when == "peer" and viewingPeer)
+      if show then
+        btn:ClearAllPoints()
+        btn:SetPoint("TOPLEFT", x, -30)
+        btn:Show()
+        ApplyChipVisual(btn, def.id == filter)
+        x = x + def.width + 4
+      else
+        btn:Hide()
+      end
     end
   end
+  UpdateAchSortButton()
+end
+
+local function UpdateCategoryCounts()
+  for _, cat in ipairs(LA.Categories or {}) do
+    local btn = categoryButtons[cat.id]
+    if btn and btn.count then
+      local earned, total = CountCategoryProgress(cat.id)
+      if total > 0 then
+        btn.count:SetText(earned .. "/" .. total)
+        btn.count:Show()
+      else
+        btn.count:SetText("")
+        btn.count:Hide()
+      end
+    end
+  end
+end
+
+local function SetListToolbar(which)
+  local playersBar = UI.playersToolbar
+  local achBar = UI.achToolbar
+  if playersBar then
+    if which == "players" then
+      playersBar:Show()
+    else
+      playersBar:Hide()
+    end
+  end
+  if achBar then
+    if which == "ach" then
+      achBar:Show()
+      UpdateAchFilterButtons()
+      if achBar.searchHint and achBar.searchBox then
+        local text = achBar.searchBox:GetText() or ""
+        if text == "" and not achBar.searchBox:HasFocus() then
+          achBar.searchHint:Show()
+        else
+          achBar.searchHint:Hide()
+        end
+      end
+    else
+      achBar:Hide()
+    end
+  end
+  local scrollFrame = UI.scrollFrame
   if scrollFrame then
-    scrollFrame:ClearAllPoints()
-    local top = visible and SCROLL_TOP_PLAYERS or SCROLL_TOP_DEFAULT
-    scrollFrame:SetPoint("TOPLEFT", 10, top)
-    scrollFrame:SetPoint("BOTTOMRIGHT", -32, 10)
+    local top = (which == "players" or which == "ach") and SCROLL_TOP_TOOLBAR or SCROLL_TOP_DEFAULT
+    if UI._scrollTop ~= top then
+      UI._scrollTop = top
+      scrollFrame:ClearAllPoints()
+      scrollFrame:SetPoint("TOPLEFT", 10, top)
+      scrollFrame:SetPoint("BOTTOMRIGHT", -32, 10)
+    end
   end
 end
 
@@ -660,17 +1109,49 @@ local function PopulateAchievements(categoryId)
   if not scrollChild or not scrollFrame or not categoryId then
     return
   end
+  if categoryId == SUMMARY_ID then
+    if PopulateSummary then
+      PopulateSummary()
+    end
+    return
+  end
 
   HidePeerCards()
+  HideSummaryWidgets()
   playersMode = false
-  SetPlayersToolbarVisible(false)
+  summaryMode = false
+  SetListToolbar("ach")
+  HideEmptyState()
 
   local viewW = GetViewWidth()
   scrollChild:SetWidth(viewW)
 
-  local list = LA:GetAchievementsByCategory(categoryId)
+  local query = achievementSearchText or ""
+  local searching = query ~= ""
+  local ui = GetUIPrefs()
+  local filter = NormalizeAchFilter()
+  local sortMode = ui.achSort or "default"
+
+  local source = CollectVisibleDefs(searching and nil or categoryId)
+  local unfilteredTotal = #source
+  local unfilteredEarned = 0
+  for _, def in ipairs(source) do
+    if IsShownComplete(def.id) then
+      unfilteredEarned = unfilteredEarned + 1
+    end
+  end
+
+  local list = {}
+  for _, def in ipairs(source) do
+    if AchievementMatchesSearch(def, query) and AchievementMatchesFilter(def, filter) then
+      list[#list + 1] = def
+    end
+  end
+  SortAchievements(list, sortMode)
+
   local y = -4
   local textW
+  local filtered = searching or (filter ~= "all")
 
   for i, def in ipairs(list) do
     local card = AcquireCard(scrollChild, i)
@@ -774,13 +1255,7 @@ local function PopulateAchievements(categoryId)
         card.bar:SetValue(math.min(current, required))
         card.barText:SetText(FormatProgress(current, required))
         local pct = required > 0 and (current / required) or 0
-        if pct >= 1 then
-          card.bar:SetStatusBarColor(0.25, 0.80, 0.25)
-        elseif pct >= 0.5 then
-          card.bar:SetStatusBarColor(0.85, 0.70, 0.15)
-        else
-          card.bar:SetStatusBarColor(0.55, 0.45, 0.15)
-        end
+        SetBarColor(card.bar, pct)
       else
         card.barBg:Hide()
       end
@@ -792,103 +1267,105 @@ local function PopulateAchievements(categoryId)
 
   ReleaseCardsFrom(#list + 1)
 
+  if #list == 0 then
+    ShowEmptyState(scrollChild, "No achievements match.")
+    y = y - 28
+  end
+
   local contentH = math.max(scrollFrame:GetHeight() or 400, (-y) + 12)
   scrollChild:SetHeight(contentH)
+  scrollFrame:SetVerticalScroll(0)
 
   -- Header summary
   if UI.frame and UI.frame.catLabel then
-    local catName = categoryId
-    for _, cat in ipairs(LA.Categories) do
-      if cat.id == categoryId then
-        catName = cat.name
-        break
+    if searching then
+      UI.frame.catLabel:SetText("Search results")
+      UI.frame.catCount:SetText(#list .. " shown")
+    else
+      local catName = categoryId
+      for _, cat in ipairs(LA.Categories) do
+        if cat.id == categoryId then
+          catName = cat.name
+          break
+        end
       end
-    end
-    UI.frame.catLabel:SetText(catName)
-    if viewingPeer then
-      local them, you, both, total = GetCompareCounts(categoryId)
-      UI.frame.catCount:SetText(
-        "|cff8cd463Them " .. them .. "/" .. total .. "|r"
+      UI.frame.catLabel:SetText(catName)
+      if viewingPeer then
+        local them, you, both, total = GetCompareCounts(categoryId)
+        local compareText = "|cff8cd463Them " .. them .. "/" .. total .. "|r"
           .. "   ·   "
           .. "|cff73c8faYou " .. you .. "/" .. total .. "|r"
           .. "   ·   "
           .. "|cffe8c652Shared " .. both .. "|r"
-      )
-    else
-      local earned, total = 0, #list
-      for _, def in ipairs(list) do
-        if IsShownComplete(def.id) then
-          earned = earned + 1
+        if filtered then
+          UI.frame.catCount:SetText(#list .. " shown · " .. compareText)
+        else
+          UI.frame.catCount:SetText(compareText)
+        end
+      else
+        local earnedText = unfilteredEarned .. " / " .. unfilteredTotal .. " earned"
+        if filtered then
+          UI.frame.catCount:SetText(#list .. " shown · " .. earnedText)
+        else
+          UI.frame.catCount:SetText(earnedText)
         end
       end
-      UI.frame.catCount:SetText(earned .. " / " .. total .. " earned")
     end
   end
 
   UpdateHeaderContext()
+  UpdateCategoryCounts()
 end
 
 ---------------------------------------------------------------------------
 -- Category sidebar
 ---------------------------------------------------------------------------
 
+local function SetSidebarButtonSelected(btn, active)
+  if not btn then
+    return
+  end
+  btn.selected = active
+  if active then
+    btn.bg:SetAlpha(1)
+    Color(btn.label, "gold")
+    if btn.arrow then
+      btn.arrow:Show()
+    end
+  else
+    btn.bg:SetAlpha(0)
+    btn.label:SetTextColor(0.82, 0.76, 0.60, 1)
+    if btn.arrow then
+      btn.arrow:Hide()
+    end
+  end
+end
+
 local function SelectCategory(categoryId)
   selectedCategory = categoryId
   playersMode = false
-  SetPlayersToolbarVisible(false)
+  summaryMode = (categoryId == SUMMARY_ID)
   for id, btn in pairs(categoryButtons) do
-    local active = (id == categoryId)
-    btn.selected = active
-    if active then
-      btn.bg:SetAlpha(1)
-      Color(btn.label, "gold")
-      if btn.arrow then
-        btn.arrow:Show()
-      end
-    else
-      btn.bg:SetAlpha(0)
-      btn.label:SetTextColor(0.82, 0.76, 0.60, 1)
-      if btn.arrow then
-        btn.arrow:Hide()
-      end
-    end
+    SetSidebarButtonSelected(btn, id == categoryId)
   end
-  if playersBtn then
-    playersBtn.selected = false
-    playersBtn.bg:SetAlpha(0)
-    playersBtn.label:SetTextColor(0.82, 0.76, 0.60, 1)
-    if playersBtn.arrow then
-      playersBtn.arrow:Hide()
-    end
+  SetSidebarButtonSelected(playersBtn, false)
+  SetSidebarButtonSelected(summaryBtn, categoryId == SUMMARY_ID)
+  if RelayoutMain then
+    RelayoutMain()
+  elseif summaryMode then
+    PopulateSummary()
+  else
+    PopulateAchievements(categoryId)
   end
-  PopulateAchievements(categoryId)
 end
 
 local function SetPlayersSidebarSelected(active)
-  if not playersBtn then
-    return
-  end
-  playersBtn.selected = active
+  SetSidebarButtonSelected(playersBtn, active)
   if active then
-    playersBtn.bg:SetAlpha(1)
-    Color(playersBtn.label, "gold")
-    if playersBtn.arrow then
-      playersBtn.arrow:Show()
-    end
     for _, btn in pairs(categoryButtons) do
-      btn.selected = false
-      btn.bg:SetAlpha(0)
-      btn.label:SetTextColor(0.82, 0.76, 0.60, 1)
-      if btn.arrow then
-        btn.arrow:Hide()
-      end
+      SetSidebarButtonSelected(btn, false)
     end
-  else
-    playersBtn.bg:SetAlpha(0)
-    playersBtn.label:SetTextColor(0.82, 0.76, 0.60, 1)
-    if playersBtn.arrow then
-      playersBtn.arrow:Hide()
-    end
+    SetSidebarButtonSelected(summaryBtn, false)
   end
 end
 
@@ -992,16 +1469,7 @@ local function UpdatePlayerFilterButtons()
   end
   for id, btn in pairs(bar.filterButtons) do
     local active = (id == playerStatusFilter)
-    btn.active = active
-    if active then
-      btn:SetBackdropBorderColor(0.95, 0.80, 0.30, 1)
-      btn:SetBackdropColor(0.35, 0.26, 0.08, 0.95)
-      Color(btn.label, "gold")
-    else
-      btn:SetBackdropBorderColor(unpack(C.borderDim))
-      btn:SetBackdropColor(0.12, 0.10, 0.06, 0.9)
-      btn.label:SetTextColor(0.75, 0.70, 0.55, 1)
-    end
+    ApplyChipVisual(btn, active)
   end
 end
 
@@ -1015,29 +1483,20 @@ local function ViewPeer(peerKey)
   end
   LA.Share:RequestPeer(peerKey)
   playersMode = false
-  SetPlayersToolbarVisible(false)
   SetPlayersSidebarSelected(false)
-  -- Show General category through peer lens by default
-  local catId = selectedCategory or (LA.Categories[1] and LA.Categories[1].id)
-  if catId then
-    selectedCategory = catId
-    for id, btn in pairs(categoryButtons) do
-      local active = (id == catId)
-      btn.selected = active
-      if active then
-        btn.bg:SetAlpha(1)
-        Color(btn.label, "gold")
-        if btn.arrow then
-          btn.arrow:Show()
-        end
-      else
-        btn.bg:SetAlpha(0)
-        btn.label:SetTextColor(0.82, 0.76, 0.60, 1)
-        if btn.arrow then
-          btn.arrow:Hide()
-        end
-      end
-    end
+  NormalizeAchFilter()
+  -- Keep current sidebar pick (Summary or a category) through the peer lens
+  local catId = selectedCategory or SUMMARY_ID
+  selectedCategory = catId
+  for id, btn in pairs(categoryButtons) do
+    SetSidebarButtonSelected(btn, id == catId)
+  end
+  SetSidebarButtonSelected(summaryBtn, catId == SUMMARY_ID)
+  if RelayoutMain then
+    RelayoutMain()
+  elseif catId == SUMMARY_ID then
+    PopulateSummary()
+  else
     PopulateAchievements(catId)
   end
   UpdateHeaderContext()
@@ -1051,9 +1510,12 @@ local function PopulatePlayers()
   end
 
   HideAchievementCards()
+  HideSummaryWidgets()
+  HideEmptyState()
   playersMode = true
+  summaryMode = false
   SetPlayersSidebarSelected(true)
-  SetPlayersToolbarVisible(true)
+  SetListToolbar("players")
   UpdatePlayerFilterButtons()
 
   if LA.Share and LA.Share.Announce then
@@ -1214,88 +1676,430 @@ local function ClearPeerView()
   if LA.Share then
     LA.Share.viewing = nil
   end
+  NormalizeAchFilter()
   UpdateHeaderContext()
-  if playersMode then
+  if RelayoutMain then
+    RelayoutMain()
+  elseif playersMode then
     PopulatePlayers()
+  elseif selectedCategory == SUMMARY_ID then
+    PopulateSummary()
   elseif selectedCategory then
     PopulateAchievements(selectedCategory)
   end
 end
 
-local function BuildCategorySidebar(parent)
+local function AcquireSummaryHeader(parent, index)
+  if summaryHeaderPool[index] then
+    return summaryHeaderPool[index]
+  end
+  local row = CreateFrame("Frame", nil, parent)
+  row:SetHeight(22)
+  local label = row:CreateFontString(nil, "OVERLAY")
+  SetFS(label, 13)
+  label:SetPoint("LEFT", 4, 0)
+  label:SetPoint("RIGHT", -4, 0)
+  label:SetJustifyH("LEFT")
+  Color(label, "goldDim")
+  row.label = label
+  summaryHeaderPool[index] = row
+  return row
+end
+
+local function AcquireSummaryCatRow(parent, index)
+  if summaryCatPool[index] then
+    return summaryCatPool[index]
+  end
+  local row = CreateFrame("Button", nil, parent)
+  row:SetHeight(SUM_CAT_H)
+  row:EnableMouse(true)
+  row:RegisterForClicks("LeftButtonUp")
+
+  local name = row:CreateFontString(nil, "OVERLAY")
+  SetFS(name, 12)
+  name:SetPoint("LEFT", 4, 0)
+  name:SetJustifyH("LEFT")
+  name:SetWordWrap(false)
+  name:SetTextColor(0.90, 0.84, 0.68, 1)
+  row.name = name
+
+  local count = row:CreateFontString(nil, "OVERLAY")
+  SetFS(count, 11)
+  count:SetPoint("RIGHT", -4, 0)
+  count:SetJustifyH("RIGHT")
+  count:SetTextColor(0.75, 0.70, 0.55, 1)
+  row.count = count
+
+  local barBg = CreateFrame("Frame", nil, row, "BackdropTemplate")
+  barBg:SetHeight(8)
+  barBg:SetPoint("LEFT", 150, 0)
+  barBg:SetPoint("RIGHT", count, "LEFT", -8, 0)
+  barBg:SetBackdrop({
+    bgFile   = "Interface\\Buttons\\WHITE8X8",
+    edgeFile = "Interface\\Buttons\\WHITE8X8",
+    edgeSize = 1,
+  })
+  barBg:SetBackdropColor(0.05, 0.05, 0.04, 0.95)
+  barBg:SetBackdropBorderColor(0.45, 0.38, 0.22, 1)
+  row.barBg = barBg
+
+  local bar = CreateFrame("StatusBar", nil, barBg)
+  bar:SetPoint("TOPLEFT", 1, -1)
+  bar:SetPoint("BOTTOMRIGHT", -1, 1)
+  bar:SetStatusBarTexture("Interface\\TargetingFrame\\UI-StatusBar")
+  bar:SetStatusBarColor(0.20, 0.70, 0.20)
+  bar:SetMinMaxValues(0, 1)
+  bar:SetValue(0)
+  row.bar = bar
+
+  row:SetScript("OnEnter", function(self)
+    self.name:SetTextColor(1, 0.92, 0.65, 1)
+  end)
+  row:SetScript("OnLeave", function(self)
+    self.name:SetTextColor(0.90, 0.84, 0.68, 1)
+  end)
+
+  summaryCatPool[index] = row
+  return row
+end
+
+local function AcquireSummaryMini(parent, index)
+  if summaryMiniPool[index] then
+    return summaryMiniPool[index]
+  end
+  local row = CreateFrame("Button", nil, parent)
+  row:SetHeight(SUM_MINI_H)
+  row:EnableMouse(true)
+  row:RegisterForClicks("LeftButtonUp")
+
+  local icon = row:CreateTexture(nil, "ARTWORK")
+  icon:SetSize(28, 28)
+  icon:SetPoint("LEFT", 4, 0)
+  icon:SetTexCoord(0.07, 0.93, 0.07, 0.93)
+  row.icon = icon
+
+  local title = row:CreateFontString(nil, "OVERLAY")
+  SetFS(title, 13)
+  title:SetPoint("LEFT", icon, "RIGHT", 10, 4)
+  title:SetPoint("RIGHT", -80, 4)
+  title:SetJustifyH("LEFT")
+  title:SetWordWrap(false)
+  Color(title, "gold")
+  row.title = title
+
+  local detail = row:CreateFontString(nil, "OVERLAY")
+  SetFS(detail, 11)
+  detail:SetPoint("RIGHT", -4, 0)
+  detail:SetJustifyH("RIGHT")
+  detail:SetTextColor(0.75, 0.70, 0.55, 1)
+  row.detail = detail
+
+  row:SetScript("OnEnter", function(self)
+    self.title:SetTextColor(1, 0.92, 0.65, 1)
+    if self.def then
+      ShowAchievementTooltip(self)
+    end
+  end)
+  row:SetScript("OnLeave", function(self)
+    Color(self.title, "gold")
+    GameTooltip:Hide()
+  end)
+  row:SetScript("OnClick", function(self)
+    if self.def and self.def.category then
+      SelectCategory(self.def.category)
+    end
+  end)
+
+  summaryMiniPool[index] = row
+  return row
+end
+
+local function EnsureSummaryOverall(parent)
+  local frame = UI.summaryOverall
+  if frame then
+    return frame
+  end
+  frame = CreateFrame("Frame", nil, parent)
+  frame:SetHeight(52)
+
+  local stats = frame:CreateFontString(nil, "OVERLAY")
+  SetFS(stats, 14)
+  stats:SetPoint("TOPLEFT", 4, -4)
+  stats:SetPoint("TOPRIGHT", -4, -4)
+  stats:SetJustifyH("LEFT")
+  Color(stats, "cream")
+  frame.stats = stats
+
+  local barBg = CreateFrame("Frame", nil, frame, "BackdropTemplate")
+  barBg:SetHeight(14)
+  barBg:SetPoint("BOTTOMLEFT", 4, 6)
+  barBg:SetPoint("BOTTOMRIGHT", -4, 6)
+  barBg:SetBackdrop({
+    bgFile   = "Interface\\Buttons\\WHITE8X8",
+    edgeFile = "Interface\\Buttons\\WHITE8X8",
+    edgeSize = 1,
+  })
+  barBg:SetBackdropColor(0.05, 0.05, 0.04, 0.95)
+  barBg:SetBackdropBorderColor(0.45, 0.38, 0.22, 1)
+  frame.barBg = barBg
+
+  local bar = CreateFrame("StatusBar", nil, barBg)
+  bar:SetPoint("TOPLEFT", 1, -1)
+  bar:SetPoint("BOTTOMRIGHT", -1, 1)
+  bar:SetStatusBarTexture("Interface\\TargetingFrame\\UI-StatusBar")
+  bar:SetStatusBarColor(0.20, 0.70, 0.20)
+  bar:SetMinMaxValues(0, 1)
+  bar:SetValue(0)
+  frame.bar = bar
+
+  local barText = bar:CreateFontString(nil, "OVERLAY")
+  SetFS(barText, 10, "OUTLINE")
+  barText:SetPoint("CENTER", 0, 0)
+  barText:SetTextColor(1, 1, 1, 1)
+  frame.barText = barText
+
+  UI.summaryOverall = frame
+  return frame
+end
+
+PopulateSummary = function()
+  local scrollChild = UI.scrollChild
+  local scrollFrame = UI.scrollFrame
+  if not scrollChild or not scrollFrame then
+    return
+  end
+
+  HideAchievementCards()
+  HidePeerCards()
+  HideEmptyState()
+  playersMode = false
+  summaryMode = true
+  SetListToolbar("none")
+
+  local viewW = GetViewWidth()
+  scrollChild:SetWidth(viewW)
+  local innerW = viewW - 10
+  local y = -4
+  local headerIndex = 0
+  local catIndex = 0
+  local miniIndex = 0
+
+  local function placeHeader(text)
+    headerIndex = headerIndex + 1
+    local header = AcquireSummaryHeader(scrollChild, headerIndex)
+    header:ClearAllPoints()
+    header:SetWidth(innerW)
+    header:SetPoint("TOPLEFT", scrollChild, "TOPLEFT", 4, y)
+    header.label:SetText(text)
+    header:Show()
+    y = y - 24
+  end
+
+  local overall = EnsureSummaryOverall(scrollChild)
+  overall:ClearAllPoints()
+  overall:SetWidth(innerW)
+  overall:SetPoint("TOPLEFT", scrollChild, "TOPLEFT", 4, y)
+  if viewingPeer then
+    local them, you, both, total = GetCompareCounts(nil)
+    overall.stats:SetText(
+      "|cff8cd463Them " .. them .. "|r  ·  |cff73c8faYou " .. you .. "|r  ·  |cffe8c652Shared " .. both .. "|r"
+    )
+    overall.bar:SetMinMaxValues(0, math.max(total, 1))
+    overall.bar:SetValue(both)
+    overall.barText:SetText(both .. " / " .. total)
+    local pct = total > 0 and (both / total) or 0
+    SetBarColor(overall.bar, pct)
+  else
+    local earned, total = CountCategoryProgress(nil)
+    local pts = LA:GetEarnedPoints() or 0
+    overall.stats:SetText(pts .. " points   ·   " .. earned .. " / " .. total .. " earned")
+    overall.bar:SetMinMaxValues(0, math.max(total, 1))
+    overall.bar:SetValue(earned)
+    overall.barText:SetText(earned .. " / " .. total)
+    local pct = total > 0 and (earned / total) or 0
+    SetBarColor(overall.bar, pct)
+  end
+  overall:Show()
+  y = y - 60
+
+  placeHeader("Categories")
   local sorted = {}
-  for _, cat in ipairs(LA.Categories) do
+  for _, cat in ipairs(LA.Categories or {}) do
     sorted[#sorted + 1] = cat
   end
   table.sort(sorted, function(a, b)
     return a.order < b.order
   end)
-
-  local btnW = math.max(120, (parent:GetWidth() or (SIDEBAR_W - 28)) - 4)
-  local y = -8
   for _, cat in ipairs(sorted) do
-    local btn = CreateFrame("Button", nil, parent)
-    btn:SetSize(btnW, CAT_BTN_H)
-    btn:SetPoint("TOPLEFT", parent, "TOPLEFT", 8, y)
-
-    local bg = Solid(btn, "BACKGROUND", 0.55, 0.42, 0.12, 0.55)
-    bg:SetAllPoints()
-    bg:SetAlpha(0)
-    btn.bg = bg
-
-    local edge = Solid(btn, "BORDER", 0.85, 0.70, 0.25, 0.0)
-    edge:SetWidth(3)
-    edge:SetPoint("TOPLEFT")
-    edge:SetPoint("BOTTOMLEFT")
-    btn.edge = edge
-
-    local arrow = btn:CreateTexture(nil, "ARTWORK")
-    arrow:SetSize(10, 10)
-    arrow:SetPoint("LEFT", 6, 0)
-    arrow:SetTexture("Interface\\Buttons\\UI-SpellbookIcon-NextPage-Up")
-    arrow:SetVertexColor(1, 0.85, 0.3)
-    arrow:Hide()
-    btn.arrow = arrow
-
-    local label = btn:CreateFontString(nil, "OVERLAY")
-    SetFS(label, 14)
-    label:SetPoint("LEFT", 22, 0)
-    label:SetPoint("RIGHT", -8, 0)
-    label:SetJustifyH("LEFT")
-    label:SetText(cat.name)
-    label:SetTextColor(0.82, 0.76, 0.60, 1)
-    btn.label = label
-
-    btn:SetScript("OnEnter", function(self)
-      if not self.selected then
-        self.bg:SetAlpha(0.45)
-        self.label:SetTextColor(1, 0.92, 0.65, 1)
+    local earned, total = CountCategoryProgress(cat.id)
+    if total > 0 then
+      catIndex = catIndex + 1
+      local row = AcquireSummaryCatRow(scrollChild, catIndex)
+      row:ClearAllPoints()
+      row:SetWidth(innerW)
+      row:SetPoint("TOPLEFT", scrollChild, "TOPLEFT", 4, y)
+      row.name:SetText(cat.name)
+      row.catId = cat.id
+      row:SetScript("OnClick", function(self)
+        if self.catId then
+          SelectCategory(self.catId)
+        end
+      end)
+      if viewingPeer then
+        local them, you = GetCompareCounts(cat.id)
+        row.barBg:Hide()
+        row.count:SetText("|cff8cd463" .. them .. "|r / |cff73c8fa" .. you .. "|r")
+        row.name:ClearAllPoints()
+        row.name:SetPoint("LEFT", 4, 0)
+        row.name:SetPoint("RIGHT", row.count, "LEFT", -8, 0)
+      else
+        row.barBg:Show()
+        row.bar:SetMinMaxValues(0, math.max(total, 1))
+        row.bar:SetValue(earned)
+        SetBarColor(row.bar, total > 0 and (earned / total) or 0)
+        row.count:SetText(earned .. "/" .. total)
+        row.name:ClearAllPoints()
+        row.name:SetPoint("LEFT", 4, 0)
+        row.name:SetPoint("RIGHT", row.barBg, "LEFT", -8, 0)
       end
-    end)
-    btn:SetScript("OnLeave", function(self)
-      if not self.selected then
-        self.bg:SetAlpha(0)
-        self.label:SetTextColor(0.82, 0.76, 0.60, 1)
-      end
-    end)
-    btn:SetScript("OnClick", function()
-      SelectCategory(cat.id)
-    end)
+      row:Show()
+      y = y - (SUM_CAT_H + 4)
+    end
+  end
+  y = y - 8
 
-    categoryButtons[cat.id] = btn
-    y = y - (CAT_BTN_H + CAT_BTN_GAP)
+  if not viewingPeer then
+    local recent = {}
+    for _, def in ipairs(CollectVisibleDefs(nil)) do
+      if LA:IsComplete(def.id) then
+        local earnedOn = LA:GetEarnedDate(def.id)
+        if earnedOn then
+          recent[#recent + 1] = { def = def, earnedOn = earnedOn }
+        end
+      end
+    end
+    table.sort(recent, function(a, b)
+      if a.earnedOn ~= b.earnedOn then
+        return a.earnedOn > b.earnedOn
+      end
+      return a.def.id < b.def.id
+    end)
+    if #recent > 0 then
+      placeHeader("Recently earned")
+      local n = math.min(3, #recent)
+      for i = 1, n do
+        miniIndex = miniIndex + 1
+        local row = AcquireSummaryMini(scrollChild, miniIndex)
+        local def = recent[i].def
+        row.def = def
+        row:ClearAllPoints()
+        row:SetWidth(innerW)
+        row:SetPoint("TOPLEFT", scrollChild, "TOPLEFT", 4, y)
+        row.icon:SetTexture(def.icon or "Interface\\Icons\\INV_Misc_QuestionMark")
+        row.icon:SetDesaturated(false)
+        row.title:SetText(def.title or "")
+        Color(row.title, "gold")
+        row.detail:SetText(FormatDate(recent[i].earnedOn))
+        row:Show()
+        y = y - (SUM_MINI_H + 4)
+      end
+      y = y - 8
+    end
+
+    local almost = {}
+    for _, def in ipairs(CollectVisibleDefs(nil)) do
+      if not LA:IsComplete(def.id) then
+        local current, required = LA:GetAchievementProgress(def.id)
+        if current > 0 and required > 0 then
+          almost[#almost + 1] = {
+            def = def,
+            ratio = current / required,
+            current = current,
+            required = required,
+          }
+        end
+      end
+    end
+    table.sort(almost, function(a, b)
+      if a.ratio ~= b.ratio then
+        return a.ratio > b.ratio
+      end
+      return a.def.id < b.def.id
+    end)
+    if #almost > 0 then
+      placeHeader("Almost there")
+      local n = math.min(3, #almost)
+      for i = 1, n do
+        miniIndex = miniIndex + 1
+        local row = AcquireSummaryMini(scrollChild, miniIndex)
+        local item = almost[i]
+        row.def = item.def
+        row:ClearAllPoints()
+        row:SetWidth(innerW)
+        row:SetPoint("TOPLEFT", scrollChild, "TOPLEFT", 4, y)
+        row.icon:SetTexture(item.def.icon or "Interface\\Icons\\INV_Misc_QuestionMark")
+        row.icon:SetDesaturated(true)
+        row.title:SetText(item.def.title or "")
+        Color(row.title, "gold")
+        row.detail:SetText(FormatProgress(item.current, item.required))
+        row:Show()
+        y = y - (SUM_MINI_H + 4)
+      end
+    end
   end
 
-  -- Spacer + Players browser (social graph)
-  y = y - 8
-  local rule = Solid(parent, "ARTWORK", 0.55, 0.42, 0.18, 0.55)
-  rule:SetHeight(1)
-  rule:SetPoint("TOPLEFT", 10, y + 4)
-  rule:SetPoint("TOPRIGHT", -6, y + 4)
+  ReleaseSummaryCatFrom(catIndex + 1)
+  ReleaseSummaryHeadersFrom(headerIndex + 1)
+  ReleaseSummaryMinisFrom(miniIndex + 1)
 
+  local contentH = math.max(scrollFrame:GetHeight() or 400, (-y) + 12)
+  scrollChild:SetHeight(contentH)
+  scrollFrame:SetVerticalScroll(0)
+
+  if UI.frame and UI.frame.catLabel then
+    UI.frame.catLabel:SetText("Summary")
+    if viewingPeer then
+      local them, you, both, total = GetCompareCounts(nil)
+      UI.frame.catCount:SetText(
+        "|cff8cd463Them " .. them .. "/" .. total .. "|r"
+          .. "   ·   "
+          .. "|cff73c8faYou " .. you .. "/" .. total .. "|r"
+          .. "   ·   "
+          .. "|cffe8c652Shared " .. both .. "|r"
+      )
+    else
+      local earned, total = CountCategoryProgress(nil)
+      UI.frame.catCount:SetText(earned .. " / " .. total .. " earned")
+    end
+  end
+  UpdateHeaderContext()
+  UpdateCategoryCounts()
+end
+
+RelayoutMain = function()
+  if UI._layingOut then
+    UI._needsRelayout = true
+    return
+  end
+  UI._layingOut = true
+  UI._needsRelayout = true
+  while UI._needsRelayout do
+    UI._needsRelayout = false
+    if playersMode then
+      PopulatePlayers()
+    elseif selectedCategory == SUMMARY_ID then
+      PopulateSummary()
+    elseif selectedCategory then
+      PopulateAchievements(selectedCategory)
+    end
+  end
+  UI._layingOut = false
+end
+
+local function MakeSidebarButton(parent, btnW, y, title, withCount)
   local btn = CreateFrame("Button", nil, parent)
   btn:SetSize(btnW, CAT_BTN_H)
-  btn:SetPoint("TOPLEFT", parent, "TOPLEFT", 8, y - 8)
+  btn:SetPoint("TOPLEFT", parent, "TOPLEFT", 8, y)
 
   local bg = Solid(btn, "BACKGROUND", 0.55, 0.42, 0.12, 0.55)
   bg:SetAllPoints()
@@ -1313,11 +2117,23 @@ local function BuildCategorySidebar(parent)
   local label = btn:CreateFontString(nil, "OVERLAY")
   SetFS(label, 14)
   label:SetPoint("LEFT", 22, 0)
-  label:SetPoint("RIGHT", -8, 0)
   label:SetJustifyH("LEFT")
-  label:SetText("Players")
+  label:SetWordWrap(false)
+  label:SetText(title)
   label:SetTextColor(0.82, 0.76, 0.60, 1)
   btn.label = label
+
+  if withCount then
+    local count = btn:CreateFontString(nil, "OVERLAY")
+    SetFS(count, 11)
+    count:SetPoint("RIGHT", -8, 0)
+    count:SetJustifyH("RIGHT")
+    count:SetTextColor(0.55, 0.50, 0.38, 1)
+    btn.count = count
+    label:SetPoint("RIGHT", count, "LEFT", -4, 0)
+  else
+    label:SetPoint("RIGHT", -8, 0)
+  end
 
   btn:SetScript("OnEnter", function(self)
     if not self.selected then
@@ -1331,13 +2147,48 @@ local function BuildCategorySidebar(parent)
       self.label:SetTextColor(0.82, 0.76, 0.60, 1)
     end
   end)
-  btn:SetScript("OnClick", function()
+
+  return btn
+end
+
+local function BuildCategorySidebar(parent)
+  local sorted = {}
+  for _, cat in ipairs(LA.Categories) do
+    sorted[#sorted + 1] = cat
+  end
+  table.sort(sorted, function(a, b)
+    return a.order < b.order
+  end)
+
+  local btnW = math.max(120, (parent:GetWidth() or (SIDEBAR_W - 28)) - 4)
+  local y = -8
+
+  summaryBtn = MakeSidebarButton(parent, btnW, y, "Summary", false)
+  summaryBtn:SetScript("OnClick", function()
+    SelectCategory(SUMMARY_ID)
+  end)
+  y = y - (CAT_BTN_H + CAT_BTN_GAP)
+
+  for _, cat in ipairs(sorted) do
+    local btn = MakeSidebarButton(parent, btnW, y, cat.name, true)
+    btn:SetScript("OnClick", function()
+      SelectCategory(cat.id)
+    end)
+    categoryButtons[cat.id] = btn
+    y = y - (CAT_BTN_H + CAT_BTN_GAP)
+  end
+
+  y = y - 8
+  local rule = Solid(parent, "ARTWORK", 0.55, 0.42, 0.18, 0.55)
+  rule:SetHeight(1)
+  rule:SetPoint("TOPLEFT", 10, y + 4)
+  rule:SetPoint("TOPRIGHT", -6, y + 4)
+
+  playersBtn = MakeSidebarButton(parent, btnW, y - 8, "Players", false)
+  playersBtn:SetScript("OnClick", function()
     PopulatePlayers()
   end)
 
-  playersBtn = btn
-
-  -- Content height for the scroll child (Players button bottom + padding)
   return (-(y - 8 - CAT_BTN_H)) + 16
 end
 
@@ -1623,7 +2474,7 @@ function UI:Init()
   local playersToolbar = CreateFrame("Frame", nil, main)
   playersToolbar:SetPoint("TOPLEFT", 12, -46)
   playersToolbar:SetPoint("TOPRIGHT", -32, -46)
-  playersToolbar:SetHeight(PLAYERS_TOOLBAR_H)
+  playersToolbar:SetHeight(LIST_TOOLBAR_H)
   playersToolbar:Hide()
   UI.playersToolbar = playersToolbar
 
@@ -1726,6 +2577,109 @@ function UI:Init()
   end
   UpdatePlayerFilterButtons()
 
+  -- Achievement search + filter + sort strip (shown under catBar)
+  local achToolbar = CreateFrame("Frame", nil, main)
+  achToolbar:SetPoint("TOPLEFT", 12, -46)
+  achToolbar:SetPoint("TOPRIGHT", -32, -46)
+  achToolbar:SetHeight(LIST_TOOLBAR_H)
+  achToolbar:Hide()
+  UI.achToolbar = achToolbar
+
+  local achSearch = CreateFrame("EditBox", "ClassicGloryAchSearch", achToolbar, "InputBoxTemplate")
+  achSearch:SetAutoFocus(false)
+  achSearch:SetHeight(22)
+  achSearch:SetPoint("TOPLEFT", 4, -2)
+  achSearch:SetPoint("TOPRIGHT", -4, -2)
+  achSearch:SetFont(FONT, 13, "")
+  achSearch:SetTextColor(0.95, 0.90, 0.75, 1)
+  achSearch:SetMaxLetters(60)
+  achToolbar.searchBox = achSearch
+
+  local achHint = achToolbar:CreateFontString(nil, "OVERLAY")
+  SetFS(achHint, 12)
+  achHint:SetPoint("LEFT", achSearch, "LEFT", 8, 0)
+  achHint:SetText("Search achievements…")
+  achHint:SetTextColor(0.55, 0.50, 0.40, 1)
+  achToolbar.searchHint = achHint
+
+  achSearch:SetScript("OnTextChanged", function(self)
+    local text = self:GetText() or ""
+    if text == "" and not self:HasFocus() then
+      achHint:Show()
+    else
+      achHint:Hide()
+    end
+    if text == achievementSearchText then
+      return
+    end
+    achievementSearchText = text
+    if not playersMode and selectedCategory and selectedCategory ~= SUMMARY_ID then
+      PopulateAchievements(selectedCategory)
+    end
+  end)
+  achSearch:SetScript("OnEscapePressed", function(self)
+    self:ClearFocus()
+    if (self:GetText() or "") ~= "" then
+      self:SetText("")
+      achievementSearchText = ""
+      if not playersMode and selectedCategory and selectedCategory ~= SUMMARY_ID then
+        PopulateAchievements(selectedCategory)
+      end
+    end
+  end)
+  achSearch:SetScript("OnEnterPressed", function(self)
+    self:ClearFocus()
+  end)
+  achSearch:SetScript("OnEditFocusGained", function()
+    achHint:Hide()
+  end)
+  achSearch:SetScript("OnEditFocusLost", function(self)
+    if (self:GetText() or "") == "" then
+      achHint:Show()
+    end
+  end)
+
+  achToolbar.filterButtons = {}
+  for _, def in ipairs(ACH_FILTER_DEFS) do
+    local btn = MakeChipButton(achToolbar, def)
+    btn:SetScript("OnClick", function(self)
+      local ui = GetUIPrefs()
+      if ui.achFilter == self.filterId then
+        return
+      end
+      ui.achFilter = self.filterId
+      UpdateAchFilterButtons()
+      if not playersMode and selectedCategory and selectedCategory ~= SUMMARY_ID then
+        PopulateAchievements(selectedCategory)
+      end
+    end)
+    achToolbar.filterButtons[def.id] = btn
+  end
+
+  local sortBtn = MakeChipButton(achToolbar, { id = "sort", label = "Sort: Default", width = 108 })
+  sortBtn:SetPoint("TOPRIGHT", -4, -2)
+  achSearch:ClearAllPoints()
+  achSearch:SetPoint("TOPLEFT", 4, -2)
+  achSearch:SetPoint("RIGHT", sortBtn, "LEFT", -10, 0)
+  sortBtn:SetScript("OnClick", function()
+    local ui = GetUIPrefs()
+    local current = ui.achSort or "default"
+    local nextMode = SORT_CYCLE[1]
+    for i, mode in ipairs(SORT_CYCLE) do
+      if mode == current then
+        nextMode = SORT_CYCLE[(i % #SORT_CYCLE) + 1]
+        break
+      end
+    end
+    ui.achSort = nextMode
+    UpdateAchSortButton()
+    if not playersMode and selectedCategory and selectedCategory ~= SUMMARY_ID then
+      PopulateAchievements(selectedCategory)
+    end
+  end)
+  achToolbar.sortBtn = sortBtn
+  UpdateAchFilterButtons()
+
   -- Scroll area
   local scrollFrame = CreateFrame("ScrollFrame", "ClassicGloryScrollFrame", main, "UIPanelScrollFrameTemplate")
   scrollFrame:SetPoint("TOPLEFT", 10, SCROLL_TOP_DEFAULT)
@@ -1740,11 +2694,7 @@ function UI:Init()
 
   -- Relayout when size changes (also fixes first-show zero-width)
   scrollFrame:SetScript("OnSizeChanged", function()
-    if playersMode then
-      PopulatePlayers()
-    elseif selectedCategory then
-      PopulateAchievements(selectedCategory)
-    end
+    RelayoutMain()
   end)
 
   f:SetScript("OnShow", function()
@@ -1752,21 +2702,13 @@ function UI:Init()
       LA.Share:Announce()
     end
     UpdateHeaderContext()
-    if playersMode then
-      PopulatePlayers()
-    elseif selectedCategory then
-      -- Defer one frame so widths are valid after Show()
-      f._pending = true
-      f:SetScript("OnUpdate", function(self)
-        self:SetScript("OnUpdate", nil)
-        self._pending = nil
-        if playersMode then
-          PopulatePlayers()
-        elseif selectedCategory then
-          PopulateAchievements(selectedCategory)
-        end
-      end)
-    end
+    -- Defer one frame so widths are valid after Show()
+    f._pending = true
+    f:SetScript("OnUpdate", function(self)
+      self:SetScript("OnUpdate", nil)
+      self._pending = nil
+      RelayoutMain()
+    end)
   end)
 
   -- Resize grip
@@ -1781,19 +2723,13 @@ function UI:Init()
   end)
   grip:SetScript("OnMouseUp", function()
     f:StopMovingOrSizing()
-    if playersMode then
-      PopulatePlayers()
-    elseif selectedCategory then
-      PopulateAchievements(selectedCategory)
-    end
+    RelayoutMain()
   end)
 
   self.frame = f
   CreateMinimapButton()
 
-  if LA.Categories[1] then
-    SelectCategory(LA.Categories[1].id)
-  end
+  SelectCategory(SUMMARY_ID)
 
   tinsert(UISpecialFrames, "ClassicGloryFrame")
 end
@@ -1803,26 +2739,22 @@ function UI:Refresh()
     return
   end
   UpdateHeaderContext()
+  UpdateCategoryCounts()
   if not self.frame:IsShown() then
     return
   end
-  if playersMode then
-    PopulatePlayers()
-  elseif selectedCategory then
-    PopulateAchievements(selectedCategory)
-  end
+  RelayoutMain()
 end
 
 function UI:OnShareUpdate()
   if not self.frame or not self.frame:IsShown() then
     return
   end
-  if playersMode then
-    PopulatePlayers()
-  elseif viewingPeer and selectedCategory then
-    PopulateAchievements(selectedCategory)
+  if playersMode or viewingPeer then
+    RelayoutMain()
   end
   UpdateHeaderContext()
+  UpdateCategoryCounts()
 end
 
 function UI:ShowPeer(fullName)

@@ -7,7 +7,7 @@ local addonName, LA = ...
 
 LA.name = addonName
 LA.displayName = "Classic Glory"
-LA.version = "0.6.1"
+LA.version = "0.7.0"
 
 -- Defaults applied on first load / when keys are missing.
 -- `version` is owned by MigrateDB so a fresh default does not skip older steps.
@@ -16,6 +16,7 @@ local defaults = {
   characters = {},
   shareEnabled = true, -- social-graph achievement sharing (opt-out)
   debugEnabled = false,
+  ui = { achFilter = "all", achSort = "default" },
 }
 
 local function IsHardcoreActive()
@@ -26,6 +27,10 @@ local function IsHardcoreActive()
     end
   end
   return false
+end
+
+function LA:IsHardcoreActive()
+  return IsHardcoreActive()
 end
 
 -- Live Unit* snapshot for website sync. Never infer these from achievements.
@@ -505,6 +510,15 @@ eventFrame:SetScript("OnEvent", function(_, event, arg1)
     end
     if ClassicGloryDB.debugEnabled == nil then
       ClassicGloryDB.debugEnabled = false
+    end
+    if type(ClassicGloryDB.ui) ~= "table" then
+      ClassicGloryDB.ui = {}
+    end
+    if ClassicGloryDB.ui.achFilter == nil then
+      ClassicGloryDB.ui.achFilter = "all"
+    end
+    if ClassicGloryDB.ui.achSort == nil then
+      ClassicGloryDB.ui.achSort = "default"
     end
 
     MigrateDB(ClassicGloryDB)

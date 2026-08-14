@@ -7,7 +7,7 @@ local addonName, LA = ...
 
 LA.name = addonName
 LA.displayName = "Classic Glory"
-LA.version = "0.7.0"
+LA.version = "0.8.0"
 
 -- Defaults applied on first load / when keys are missing.
 -- `version` is owned by MigrateDB so a fresh default does not skip older steps.
@@ -551,6 +551,9 @@ eventFrame:SetScript("OnEvent", function(_, event, arg1)
     LA:RefreshCharacterMeta(nil, { level = arg1 })
   elseif event == "PLAYER_ENTERING_WORLD" or event == "PLAYER_LOGOUT" then
     LA:RefreshCharacterMeta()
+    if event == "PLAYER_LOGOUT" and LA.UI and LA.UI.PersistLayout then
+      LA.UI:PersistLayout()
+    end
   end
 end)
 

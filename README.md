@@ -1,6 +1,6 @@
 # Classic Glory
 
-Retail-style achievement tracking for **World of Warcraft Classic Era / Hardcore** (addon **v0.7.0**), plus a web platform to share progress on public leaderboards.
+Retail-style achievement tracking for **World of Warcraft Classic Era / Hardcore** (addon **v0.8.0**), plus a web platform to share progress on public leaderboards.
 
 **190+ achievements** across 10 categories: General, Quests, Combat, Exploration, Wealth, Professions, Dungeons, PvP, Hardcore, and Feats of Strength.
 
@@ -61,7 +61,7 @@ This repo is the **source of truth**. Sync to the game folder (PowerShell):
 
 ### In-game panel
 
-`/cg` opens on **Summary**: overall points and earned count, per-category progress, the last three earns, and up to three almost-finished achievements.
+`/cg` opens on **Summary**: overall points and earned count, per-category progress, the last three earns, and up to three almost-finished achievements. The panel remembers its size and position; the minimap button remembers where you dragged it.
 
 Category lists are searchable (title and description; a query searches every category). Filter with All / Earned / Incomplete / Almost, and sort with Default / Recent / Points / A-Z. Hover a card for criteria progress.
 
@@ -69,7 +69,7 @@ Category lists are searchable (title and description; a query searches every cat
 
 Completed achievements can be browsed for other players who use the addon (guild, party, raid, or `/cg inspect`). Sharing is on by default; turn off with `/cg share off`.
 
-Open the **Players** sidebar to browse peers. The list is searchable by name, filterable by addon status (All / Addon / Pending / No addon), and grouped into Group/Raid, Guild, and Inspected.
+Open the **Players** sidebar to browse peers. The list defaults to players with the addon, is searchable by name, and can be filtered with All / Addon / No addon. Use **Inspect current target** (or `/cg inspect`) to request a targeted player. Peers are grouped into Group/Raid, Guild, and Inspected.
 
 ---
 

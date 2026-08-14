@@ -11,6 +11,9 @@ LA.UI = UI
 
 -- Layout constants
 local PANEL_W, PANEL_H = 900, 640
+local PANEL_MIN_W, PANEL_MIN_H = 720, 500
+local PANEL_MAX_W, PANEL_MAX_H = 1100, 860
+local MINIMAP_DEFAULT_ANGLE = 220
 local SIDEBAR_W = 190
 local HEADER_H = 58
 local CARD_H = 108
@@ -41,7 +44,7 @@ local playersBtn
 local summaryBtn
 local youBtn
 local playerSearchText = ""
-local playerStatusFilter = "all" -- all | addon | pending | noaddon
+local playerStatusFilter = "addon" -- all | addon | noaddon
 local achievementSearchText = ""
 local SCROLL_TOP_DEFAULT = -50
 local SCROLL_TOP_TOOLBAR = -(50 + LIST_TOOLBAR_H)
@@ -142,6 +145,65 @@ local function GetUIPrefs()
     db.ui.achSort = "default"
   end
   return db.ui
+end
+
+local function Clamp(n, lo, hi)
+  if n < lo then
+    return lo
+  end
+  if n > hi then
+    return hi
+  end
+  return n
+end
+
+local function Round(n)
+  if n >= 0 then
+    return math.floor(n + 0.5)
+  end
+  return math.ceil(n - 0.5)
+end
+
+local function IsFiniteNumber(n)
+  return type(n) == "number" and n == n and n ~= math.huge and n ~= -math.huge
+end
+
+local function SaveFrameLayout(frame)
+  if not frame then
+    return
+  end
+  local db = LA.db or ClassicGloryDB
+  if type(db) ~= "table" then
+    return
+  end
+  local ui = GetUIPrefs()
+  ui.frameW = Round(Clamp(frame:GetWidth() or PANEL_W, PANEL_MIN_W, PANEL_MAX_W))
+  ui.frameH = Round(Clamp(frame:GetHeight() or PANEL_H, PANEL_MIN_H, PANEL_MAX_H))
+  local left, top = frame:GetLeft(), frame:GetTop()
+  if IsFiniteNumber(left) and IsFiniteNumber(top) then
+    ui.frameLeft = Round(left * 10) / 10
+    ui.frameTop = Round(top * 10) / 10
+  end
+end
+
+local function RestoreFrameLayout(frame)
+  if not frame then
+    return
+  end
+  local db = LA.db or ClassicGloryDB
+  if type(db) ~= "table" then
+    return
+  end
+  local ui = GetUIPrefs()
+  local w, h = ui.frameW, ui.frameH
+  if IsFiniteNumber(w) and IsFiniteNumber(h) then
+    frame:SetSize(Clamp(w, PANEL_MIN_W, PANEL_MAX_W), Clamp(h, PANEL_MIN_H, PANEL_MAX_H))
+  end
+  local left, top = ui.frameLeft, ui.frameTop
+  if IsFiniteNumber(left) and IsFiniteNumber(top) then
+    frame:ClearAllPoints()
+    frame:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", left, top)
+  end
 end
 
 local function NormalizeAchFilter()
@@ -1502,6 +1564,21 @@ local function ViewPeer(peerKey)
   UpdateHeaderContext()
 end
 
+local function InspectCurrentTarget()
+  if not LA.Share or not LA.Share.InspectTargetOrName then
+    DEFAULT_CHAT_FRAME:AddMessage("|cffffd100Classic Glory|r: sharing unavailable.")
+    return
+  end
+  local ok, result = LA.Share:InspectTargetOrName()
+  if not ok then
+    DEFAULT_CHAT_FRAME:AddMessage(
+      "|cffffd100Classic Glory|r: " .. (result or "Target a player first.")
+    )
+    return
+  end
+  ViewPeer(result)
+end
+
 local function PopulatePlayers()
   local scrollChild = UI.scrollChild
   local scrollFrame = UI.scrollFrame
@@ -1610,7 +1687,7 @@ local function PopulatePlayers()
     Color(card.name, "gold")
     card.name:SetText("No players found yet")
     card.detail:SetTextColor(0.75, 0.70, 0.55, 1)
-    card.detail:SetText("Guild, party, and raid members with the addon appear here. Target a player and type /cg inspect.")
+    card.detail:SetText("Guild, party, and raid members with the addon appear here. Target a player and use Inspect current target.")
     card:SetBackdropBorderColor(unpack(C.borderDim))
     card:SetScript("OnClick", nil)
     card:Show()
@@ -1626,7 +1703,7 @@ local function PopulatePlayers()
     Color(card.name, "gold")
     card.name:SetText("No matching players")
     card.detail:SetTextColor(0.75, 0.70, 0.55, 1)
-    card.detail:SetText("Try a different search or status filter.")
+    card.detail:SetText("Try All or No addon, or inspect your current target.")
     card:SetBackdropBorderColor(unpack(C.borderDim))
     card:SetScript("OnClick", nil)
     card:Show()
@@ -2214,7 +2291,8 @@ local function CreateMinimapButton()
   icon:SetPoint("CENTER", 1, 0)
   btn.icon = icon
 
-  local angle = 220
+  local savedAngle = GetUIPrefs().minimapAngle
+  local angle = IsFiniteNumber(savedAngle) and savedAngle or MINIMAP_DEFAULT_ANGLE
   local function UpdatePosition()
     local radius = (Minimap:GetWidth() / 2) + 5
     local rad = math.rad(angle)
@@ -2222,6 +2300,14 @@ local function CreateMinimapButton()
     btn:SetPoint("CENTER", Minimap, "CENTER", math.cos(rad) * radius, math.sin(rad) * radius)
   end
   UpdatePosition()
+
+  local function SaveMinimapAngle()
+    local db = LA.db or ClassicGloryDB
+    if type(db) ~= "table" or not IsFiniteNumber(angle) then
+      return
+    end
+    GetUIPrefs().minimapAngle = Round(angle * 10) / 10
+  end
 
   btn:RegisterForDrag("LeftButton")
   btn:SetScript("OnDragStart", function(self)
@@ -2231,12 +2317,26 @@ local function CreateMinimapButton()
       local scale = Minimap:GetEffectiveScale()
       cx, cy = cx / scale, cy / scale
       angle = math.deg(math.atan2(cy - my, cx - mx))
+      btn.angle = angle
       UpdatePosition()
     end)
   end)
   btn:SetScript("OnDragStop", function(self)
     self:SetScript("OnUpdate", nil)
+    SaveMinimapAngle()
   end)
+
+  btn.angle = angle
+  btn.UpdatePosition = UpdatePosition
+  if not UI._minimapSizeHooked then
+    UI._minimapSizeHooked = true
+    Minimap:HookScript("OnSizeChanged", function()
+      local b = UI.minimapButton
+      if b and b.UpdatePosition then
+        b.UpdatePosition()
+      end
+    end)
+  end
 
   btn:SetScript("OnClick", function()
     UI:Toggle()
@@ -2267,18 +2367,26 @@ function UI:Init()
   f:SetMovable(true)
   f:SetResizable(true)
   if f.SetResizeBounds then
-    f:SetResizeBounds(720, 500, 1100, 860)
+    f:SetResizeBounds(PANEL_MIN_W, PANEL_MIN_H, PANEL_MAX_W, PANEL_MAX_H)
   else
-    f:SetMinResize(720, 500)
-    f:SetMaxResize(1100, 860)
+    f:SetMinResize(PANEL_MIN_W, PANEL_MIN_H)
+    f:SetMaxResize(PANEL_MAX_W, PANEL_MAX_H)
   end
   f:SetClampedToScreen(true)
   f:SetFrameStrata("HIGH")
   f:EnableMouse(true)
   f:RegisterForDrag("LeftButton")
   f:SetScript("OnDragStart", f.StartMoving)
-  f:SetScript("OnDragStop", f.StopMovingOrSizing)
+  f:SetScript("OnDragStop", function(self)
+    self:StopMovingOrSizing()
+    SaveFrameLayout(self)
+  end)
+  RestoreFrameLayout(f)
   f:Hide()
+  f:SetScript("OnHide", function(self)
+    self:StopMovingOrSizing()
+    SaveFrameLayout(self)
+  end)
 
   -- Outer wood dialog (Classic-safe border textures only)
   f:SetBackdrop({
@@ -2535,32 +2643,13 @@ function UI:Init()
   local filterDefs = {
     { id = "all",     label = "All",      width = 48 },
     { id = "addon",   label = "Addon",    width = 58 },
-    { id = "pending", label = "Pending",  width = 68 },
     { id = "noaddon", label = "No addon", width = 78 },
   }
   playersToolbar.filterButtons = {}
   local filterX = 4
   for _, def in ipairs(filterDefs) do
-    local btn = CreateFrame("Button", nil, playersToolbar, "BackdropTemplate")
-    btn:SetSize(def.width, 22)
+    local btn = MakeChipButton(playersToolbar, def)
     btn:SetPoint("TOPLEFT", filterX, -30)
-    btn:SetBackdrop({
-      bgFile   = "Interface\\Tooltips\\UI-Tooltip-Background",
-      edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
-      tile = true, tileSize = 8, edgeSize = 10,
-      insets = { left = 2, right = 2, top = 2, bottom = 2 },
-    })
-    btn:SetBackdropColor(0.12, 0.10, 0.06, 0.9)
-    btn:SetBackdropBorderColor(unpack(C.borderDim))
-
-    local flabel = btn:CreateFontString(nil, "OVERLAY")
-    SetFS(flabel, 11)
-    flabel:SetPoint("CENTER")
-    flabel:SetText(def.label)
-    flabel:SetTextColor(0.75, 0.70, 0.55, 1)
-    btn.label = flabel
-    btn.filterId = def.id
-
     btn:SetScript("OnClick", function(self)
       if playerStatusFilter == self.filterId then
         return
@@ -2571,10 +2660,30 @@ function UI:Init()
         PopulatePlayers()
       end
     end)
-
     playersToolbar.filterButtons[def.id] = btn
     filterX = filterX + def.width + 4
   end
+
+  local inspectBtn = MakeChipButton(playersToolbar, {
+    id = "inspect",
+    label = "Inspect current target",
+    width = 168,
+  })
+  inspectBtn:SetPoint("TOPRIGHT", -4, -30)
+  inspectBtn:SetScript("OnClick", InspectCurrentTarget)
+  inspectBtn:SetScript("OnEnter", function(self)
+    self:SetBackdropBorderColor(0.95, 0.80, 0.30, 1)
+    GameTooltip:SetOwner(self, "ANCHOR_BOTTOM")
+    GameTooltip:AddLine("Inspect current target", 1, 0.82, 0)
+    GameTooltip:AddLine("Request achievements from the player you have targeted.", 0.75, 0.75, 0.75, true)
+    GameTooltip:Show()
+  end)
+  inspectBtn:SetScript("OnLeave", function(self)
+    ApplyChipVisual(self, false)
+    GameTooltip:Hide()
+  end)
+  ApplyChipVisual(inspectBtn, false)
+  playersToolbar.inspectBtn = inspectBtn
   UpdatePlayerFilterButtons()
 
   -- Achievement search + filter + sort strip (shown under catBar)
@@ -2723,6 +2832,7 @@ function UI:Init()
   end)
   grip:SetScript("OnMouseUp", function()
     f:StopMovingOrSizing()
+    SaveFrameLayout(f)
     RelayoutMain()
   end)
 
@@ -2732,6 +2842,21 @@ function UI:Init()
   SelectCategory(SUMMARY_ID)
 
   tinsert(UISpecialFrames, "ClassicGloryFrame")
+end
+
+function UI:PersistLayout()
+  if self.frame then
+    SaveFrameLayout(self.frame)
+  end
+  local btn = self.minimapButton
+  if not btn or not IsFiniteNumber(btn.angle) then
+    return
+  end
+  local db = LA.db or ClassicGloryDB
+  if type(db) ~= "table" then
+    return
+  end
+  GetUIPrefs().minimapAngle = Round(btn.angle * 10) / 10
 end
 
 function UI:Refresh()

@@ -50,9 +50,8 @@ function auditCriteria(snapshot: SealSnapshot, id: string): string | null {
         }
         break;
       case "DEATHLESS":
-        if (snapshot.deaths > 0) {
-          return `Achievement ${id} requires never dying.`;
-        }
+        // Earned before death and kept after; the addon will not grant these
+        // once deaths > 0. Do not reject a later hardcore death on sync.
         if (snapshot.level < crit.value || earnedLevel < crit.value) {
           return `Achievement ${id} requires reaching level ${crit.value} without dying.`;
         }

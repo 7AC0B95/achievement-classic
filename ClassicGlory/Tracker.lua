@@ -539,6 +539,54 @@ local function ParseLootItemName(msg)
   return name
 end
 
+local function ClearDeathlessProgress()
+  if not LA.Achievements then
+    return
+  end
+  for id, def in pairs(LA.Achievements) do
+    if not LA:IsComplete(id) and def.criteria then
+      for i, crit in ipairs(def.criteria) do
+        if crit.type == "DEATHLESS" then
+          LA:SetProgress(id, i, 0)
+        end
+      end
+    end
+  end
+end
+
+local function RecordDeath()
+  local char = LA:GetCharDB()
+  if not char then
+    return
+  end
+  char.deaths = (char.deaths or 0) + 1
+  if IsHardcoreActive() then
+    char.status = "Dead"
+  end
+  if LA.RefreshCharacterMeta then
+    LA:RefreshCharacterMeta(char)
+  end
+  ClearDeathlessProgress()
+  Tracker:Route("DEATH")
+end
+
+-- Hardcore ghosts who died while the addon was not loaded (or missed PLAYER_DEAD)
+-- still appear as a ghost on login/logout. Count that death once.
+local function DetectMissedHardcoreDeath()
+  if not IsHardcoreActive() then
+    return
+  end
+  if not UnitIsGhost("player") then
+    return
+  end
+  local char = LA:GetCharDB()
+  if not char or (char.deaths or 0) > 0 then
+    return
+  end
+  LA:Debug("hardcore ghost on login/logout; recording missed death")
+  RecordDeath()
+end
+
 local function OnEvent(_, event, ...)
   if event == "PLAYER_LEVEL_UP" then
     local newLevel = ...
@@ -556,6 +604,7 @@ local function OnEvent(_, event, ...)
     if LA.RefreshCharacterMeta then
       LA:RefreshCharacterMeta()
     end
+    DetectMissedHardcoreDeath()
     Tracker:Route("LEVEL")
     Tracker:Route("IDENTITY")
     Tracker:Route("LOGIN")
@@ -580,29 +629,7 @@ local function OnEvent(_, event, ...)
     Tracker:Route("HEALTH_LEAVE_COMBAT")
   elseif event == "PLAYER_DEAD" then
     wipe(lowHpArmed)
-    local char = LA:GetCharDB()
-    if char then
-      char.deaths = (char.deaths or 0) + 1
-      if IsHardcoreActive() then
-        char.status = "Dead"
-      end
-      if LA.RefreshCharacterMeta then
-        LA:RefreshCharacterMeta(char)
-      end
-    end
-    -- Deathless achievements become impossible; clear their progress
-    if LA.Achievements then
-      for id, def in pairs(LA.Achievements) do
-        if not LA:IsComplete(id) and def.criteria then
-          for i, crit in ipairs(def.criteria) do
-            if crit.type == "DEATHLESS" then
-              LA:SetProgress(id, i, 0)
-            end
-          end
-        end
-      end
-    end
-    Tracker:Route("DEATH")
+    RecordDeath()
   elseif event == "COMBAT_LOG_EVENT_UNFILTERED" then
     OnCombatLogEvent()
   elseif event == "QUEST_TURNED_IN" then
@@ -643,8 +670,10 @@ local function OnEvent(_, event, ...)
     Tracker:Route("REP")
   elseif event == "CHAT_MSG_SKILL" or event == "SKILL_LINES_CHANGED" then
     Tracker:Route("SKILL")
+  elseif event == "PLAYER_LOGOUT" then
+    DetectMissedHardcoreDeath()
   elseif event == "PLAYER_UNGHOST" or event == "PLAYER_ALIVE" then
-    -- no-op; deaths already counted
+    -- no-op; deaths already counted (or caught as a hardcore ghost on login/logout)
   end
 end
 
@@ -669,6 +698,7 @@ function Tracker:Start()
   frame:RegisterEvent("UNIT_MAXHEALTH")
   frame:RegisterEvent("PLAYER_REGEN_ENABLED")
   frame:RegisterEvent("PLAYER_DEAD")
+  frame:RegisterEvent("PLAYER_LOGOUT")
   frame:RegisterEvent("COMBAT_LOG_EVENT_UNFILTERED")
   frame:RegisterEvent("QUEST_TURNED_IN")
   frame:RegisterEvent("ZONE_CHANGED")
@@ -685,6 +715,7 @@ function Tracker:Start()
   frame:SetScript("OnEvent", OnEvent)
 
   -- Initial evaluation for already-met criteria (e.g. mid-level login)
+  DetectMissedHardcoreDeath()
   self:Route("LEVEL")
   self:Route("IDENTITY")
   self:Route("LOGIN")

@@ -1,6 +1,7 @@
 --[[
   Classic Glory - Alert
   Toast popup + sound when an achievement is earned.
+  Unlocks that arrive within a short window are coalesced into one toast.
 ]]
 
 local addonName, LA = ...
@@ -12,11 +13,62 @@ local TOAST_WIDTH = 320
 local TOAST_HEIGHT = 72
 local DISPLAY_SECONDS = 5
 local SOUND_ID = 8499 -- Achievement-like fanfare (Classic-safe numeric id)
+local BURST_WINDOW = 0.3
+local MAX_NAMED = 3
+local TITLE_LINE = 16
+local MORE_LINE = 14
 
 local toast
-local animGroup
+local scheduler
 local hideAt = 0
-local queue = {}
+local pending = {}
+local flushAt = 0
+local flushGen = 0
+
+local function EnsureScheduler()
+  if scheduler then
+    return scheduler
+  end
+  scheduler = CreateFrame("Frame")
+  scheduler:Hide()
+  scheduler:SetScript("OnUpdate", function(self)
+    if flushAt == 0 or GetTime() < flushAt then
+      return
+    end
+    flushAt = 0
+    self:Hide()
+    Alert:_FlushPending()
+  end)
+  return scheduler
+end
+
+local function ArmFlush()
+  if flushAt ~= 0 then
+    return
+  end
+  flushAt = GetTime() + BURST_WINDOW
+  flushGen = flushGen + 1
+  local gen = flushGen
+  if C_Timer and C_Timer.After then
+    C_Timer.After(BURST_WINDOW, function()
+      if gen ~= flushGen then
+        return
+      end
+      flushAt = 0
+      Alert:_FlushPending()
+    end)
+  else
+    EnsureScheduler():Show()
+  end
+end
+
+local function CancelFlush()
+  flushAt = 0
+  flushGen = flushGen + 1
+  if scheduler then
+    scheduler:Hide()
+  end
+end
 
 local function EnsureToast()
   if toast then
@@ -68,7 +120,31 @@ local function EnsureToast()
   title:SetPoint("TOPLEFT", banner, "BOTTOMLEFT", 0, -4)
   title:SetPoint("RIGHT", toast, "RIGHT", -16, 0)
   title:SetJustifyH("LEFT")
+  title:SetWordWrap(false)
   toast.title = title
+
+  local title2 = toast:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+  title2:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -2)
+  title2:SetPoint("RIGHT", toast, "RIGHT", -16, 0)
+  title2:SetJustifyH("LEFT")
+  title2:SetWordWrap(false)
+  title2:Hide()
+  toast.title2 = title2
+
+  local title3 = toast:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+  title3:SetPoint("TOPLEFT", title2, "BOTTOMLEFT", 0, -2)
+  title3:SetPoint("RIGHT", toast, "RIGHT", -16, 0)
+  title3:SetJustifyH("LEFT")
+  title3:SetWordWrap(false)
+  title3:Hide()
+  toast.title3 = title3
+
+  local more = toast:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+  more:SetJustifyH("LEFT")
+  more:SetTextColor(0.75, 0.75, 0.75)
+  more:SetWordWrap(false)
+  more:Hide()
+  toast.more = more
 
   local points = toast:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
   points:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -2)
@@ -76,31 +152,81 @@ local function EnsureToast()
   points:SetTextColor(0.9, 0.9, 0.6)
   toast.points = points
 
-  toast:SetScript("OnUpdate", function(self, elapsed)
-    if hideAt == 0 then
-      return
-    end
-    if GetTime() >= hideAt then
-      hideAt = 0
-      self:Hide()
-      Alert:_Dequeue()
-    end
-  end)
-
   return toast
 end
 
-function Alert:_Present(def)
-  local f = EnsureToast()
-  f.icon:SetTexture(def.icon or "Interface\\Icons\\INV_Misc_QuestionMark")
+local function LayoutContent(f, defs)
+  local n = #defs
+  local first = defs[1]
+  f.icon:SetTexture(first.icon or "Interface\\Icons\\INV_Misc_QuestionMark")
   f.icon:SetDesaturated(false)
-  f.title:SetText(def.title or "Achievement")
-  local pts = def.points or 0
+
+  local named = math.min(MAX_NAMED, n)
+  local titles = { f.title, f.title2, f.title3 }
+  local leftover = n - named
+
+  if n == 1 then
+    f:SetHeight(TOAST_HEIGHT)
+    f.banner:SetText("Achievement Earned!")
+    f.title:SetText(first.title or "Achievement")
+    f.title:Show()
+    f.title2:Hide()
+    f.title3:Hide()
+    f.more:Hide()
+    f.points:ClearAllPoints()
+    f.points:SetPoint("TOPLEFT", f.title, "BOTTOMLEFT", 0, -2)
+  else
+    f.banner:SetText("Achievements Earned!")
+    local last = f.title
+    for i = 1, MAX_NAMED do
+      local fs = titles[i]
+      if i <= named then
+        fs:SetText(defs[i].title or "Achievement")
+        fs:Show()
+        last = fs
+      else
+        fs:Hide()
+      end
+    end
+    if leftover > 0 then
+      f.more:ClearAllPoints()
+      f.more:SetPoint("TOPLEFT", last, "BOTTOMLEFT", 0, -2)
+      f.more:SetPoint("RIGHT", f, "RIGHT", -16, 0)
+      f.more:SetText("... and " .. leftover .. " more")
+      f.more:Show()
+      last = f.more
+    else
+      f.more:Hide()
+    end
+    f.points:ClearAllPoints()
+    f.points:SetPoint("TOPLEFT", last, "BOTTOMLEFT", 0, -2)
+    f:SetHeight(TOAST_HEIGHT + (named - 1) * TITLE_LINE + (leftover > 0 and MORE_LINE or 0))
+  end
+
+  local pts = 0
+  for i = 1, n do
+    pts = pts + (defs[i].points or 0)
+  end
   if pts > 0 then
     f.points:SetText(pts .. " points")
   else
     f.points:SetText("Feat of Strength")
   end
+end
+
+local function OnToastHidden()
+  CancelFlush()
+  if #pending > 0 then
+    Alert:_FlushPending()
+  end
+end
+
+function Alert:_Present(defs)
+  if not defs or #defs == 0 then
+    return
+  end
+  local f = EnsureToast()
+  LayoutContent(f, defs)
 
   -- Sound — numeric id works on Classic Era without SOUNDKIT tables
   pcall(PlaySound, SOUND_ID)
@@ -129,19 +255,28 @@ function Alert:_Present(def)
           hideAt = 0
           frame:Hide()
           frame:SetAlpha(1)
-          Alert:_Dequeue()
+          OnToastHidden()
         end
       end)
     end
   end)
 end
 
-function Alert:_Dequeue()
-  if #queue == 0 then
+function Alert:_FlushPending()
+  flushAt = 0
+  if scheduler then
+    scheduler:Hide()
+  end
+  if #pending == 0 then
     return
   end
-  local nextDef = table.remove(queue, 1)
-  self:_Present(nextDef)
+  local f = EnsureToast()
+  if f:IsShown() then
+    return
+  end
+  local defs = pending
+  pending = {}
+  self:_Present(defs)
 end
 
 --- Public entry: show a toast for the given achievement definition.
@@ -149,10 +284,10 @@ function Alert:Show(def)
   if not def then
     return
   end
+  pending[#pending + 1] = def
   local f = EnsureToast()
   if f:IsShown() then
-    queue[#queue + 1] = def
     return
   end
-  self:_Present(def)
+  ArmFlush()
 end

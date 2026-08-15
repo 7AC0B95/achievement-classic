@@ -9,7 +9,6 @@ import {
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { AddonDownloadButton } from "@/components/addon-download-button";
 import { useWowSync } from "@/hooks/use-wow-sync";
 import { getAchievementById } from "@/lib/achievements";
 import {
@@ -115,11 +114,6 @@ export function FileSyncPanel({
             .
             <br />
             Log out first so the account-wide file includes every character.
-            Need the addon?{" "}
-            <AddonDownloadButton variant="link">
-              Download the latest folder
-            </AddonDownloadButton>
-            .
           </p>
         </div>
 

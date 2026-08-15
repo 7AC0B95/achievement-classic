@@ -131,11 +131,7 @@ export interface CharacterProfileAchievement extends AchievementRow {
   unlocked_at: string | null;
 }
 
-export type LeaderboardSort =
-  | "total_points"
-  | "achievement_count"
-  | "recent"
-  | "boss_kills";
+export type LeaderboardSort = "total_points" | "achievement_count";
 
 export interface SyncPayload {
   character: ParsedCharacter;

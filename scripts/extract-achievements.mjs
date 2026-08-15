@@ -104,10 +104,6 @@ console.log(
 );
 
 // Generate TypeScript catalog
-const dungeonIds = achievements
-  .filter((a) => a.category === "Dungeons")
-  .map((a) => a.id);
-
 const lines = [];
 lines.push(`import type { AchievementDefinition } from "./types";`);
 lines.push("");
@@ -124,13 +120,6 @@ for (const a of achievements) {
   lines.push(`  },`);
 }
 lines.push(`];`);
-lines.push("");
-lines.push(`/** Used for leaderboard "dungeon clears" sort (Dungeons category). */`);
-lines.push(`export const BOSS_ACHIEVEMENT_IDS = [`);
-for (const id of dungeonIds) {
-  lines.push(`  ${JSON.stringify(id)},`);
-}
-lines.push(`] as const;`);
 lines.push("");
 lines.push(`const byId = new Map(ACHIEVEMENT_CATALOG.map((a) => [a.id, a]));`);
 lines.push("");

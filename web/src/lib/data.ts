@@ -1,4 +1,4 @@
-import { ACHIEVEMENT_CATALOG, BOSS_ACHIEVEMENT_IDS } from "@/lib/achievements";
+import { ACHIEVEMENT_CATALOG } from "@/lib/achievements";
 import { createClient } from "@/lib/supabase/server";
 import type {
   AchievementRow,
@@ -33,30 +33,12 @@ export async function fetchLeaderboard(filters: {
 
     if (filters.sort === "achievement_count") {
       query = query.order("achievement_count", { ascending: false });
-    } else if (filters.sort === "recent") {
-      query = query.order("last_synced_at", { ascending: false, nullsFirst: false });
     } else {
       query = query.order("total_points", { ascending: false });
     }
 
     const { data, error } = await query.limit(100);
     if (error || !data) return [];
-
-    if (filters.sort === "boss_kills") {
-      const { data: bossRows } = await supabase
-        .from("character_achievements")
-        .select("character_id")
-        .in("achievement_id", [...BOSS_ACHIEVEMENT_IDS]);
-
-      const counts = new Map<string, number>();
-      for (const row of bossRows ?? []) {
-        counts.set(row.character_id, (counts.get(row.character_id) ?? 0) + 1);
-      }
-
-      return [...(data as CharacterRow[])].sort(
-        (a, b) => (counts.get(b.id) ?? 0) - (counts.get(a.id) ?? 0),
-      );
-    }
 
     return data as CharacterRow[];
   } catch {

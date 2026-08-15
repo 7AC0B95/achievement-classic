@@ -56,8 +56,6 @@ export function LeaderboardFilters({ realms }: LeaderboardFiltersProps) {
         options={[
           { value: "total_points", label: "Total points" },
           { value: "achievement_count", label: "Achievements" },
-          { value: "recent", label: "Recent unlocks / sync" },
-          { value: "boss_kills", label: "Dungeon clears" },
         ]}
       />
     </div>

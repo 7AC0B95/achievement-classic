@@ -74,10 +74,16 @@ export function AuthPanel() {
         </div>
       ) : (
         <div className="mt-3 space-y-3">
-          <p className="max-w-2xl text-sm text-zinc-400">
-            An account is required before syncing so your characters belong to
-            you on the public boards.
-          </p>
+          <div className="max-w-2xl space-y-1.5 text-sm text-zinc-400">
+            <p>
+              An account is required before syncing so your characters belong to
+              you on the public boards.
+            </p>
+            <p>
+              Your email is never shown publicly, and there is no account
+              profile page.
+            </p>
+          </div>
           <form onSubmit={onSignIn} className="flex flex-wrap gap-2">
             <label className="relative min-w-0 w-full flex-1">
               <Mail className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-zinc-500" />

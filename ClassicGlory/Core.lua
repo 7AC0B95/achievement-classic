@@ -7,7 +7,7 @@ local addonName, LA = ...
 
 LA.name = addonName
 LA.displayName = "Classic Glory"
-LA.version = "0.9.1"
+LA.version = "0.10.0"
 
 -- Defaults applied on first load / when keys are missing.
 -- `version` is owned by MigrateDB so a fresh default does not skip older steps.

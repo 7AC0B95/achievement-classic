@@ -38,10 +38,16 @@ local function IsHardcoreActive()
   return false
 end
 
---- Achievements marked hcOnly are ignored on non-Hardcore characters.
+--- Achievements marked hcOnly / factionOnly are ignored when they do not apply.
 local function AchievementAllowed(def)
   if def.hcOnly and not IsHardcoreActive() then
     return false
+  end
+  if def.factionOnly then
+    local faction = UnitFactionGroup("player")
+    if not faction or faction:lower() ~= def.factionOnly:lower() then
+      return false
+    end
   end
   return true
 end
@@ -383,6 +389,62 @@ local function CheckLoginCriteria(def, crit, critIndex)
   SetProgressToward(def, critIndex, 1)
 end
 
+local function PlayerBuffAt(index)
+  -- Classic Era: UnitBuff is the stable helpful-aura API. spellId is the 10th return.
+  if UnitBuff then
+    local name, _, _, _, _, _, _, _, _, spellId = UnitBuff("player", index)
+    if type(name) == "table" then
+      return name.name, name.spellId
+    end
+    return name, spellId
+  end
+  if C_UnitAuras and C_UnitAuras.GetAuraDataByIndex then
+    local data = C_UnitAuras.GetAuraDataByIndex("player", index, "HELPFUL")
+    if not data then
+      return nil
+    end
+    return data.name, data.spellId
+  end
+  local name, _, _, _, _, _, _, _, _, spellId = UnitAura("player", index, "HELPFUL")
+  if type(name) == "table" then
+    return name.name, name.spellId
+  end
+  return name, spellId
+end
+
+local function PlayerHasBuff(spellId, nameNeedle)
+  if not spellId and (not nameNeedle or nameNeedle == "") then
+    return false
+  end
+  for i = 1, 80 do
+    local name, id = PlayerBuffAt(i)
+    if not name then
+      break
+    end
+    if spellId and id == spellId then
+      return true
+    end
+    if nameNeedle and NameMatches(name, nameNeedle) then
+      return true
+    end
+  end
+  return false
+end
+
+-- BUFF progress is only "on" while the aura is present so multi-criteria
+-- world-buff feats require the listed buffs at the same time.
+local function CheckBuffCriteria(def, crit, critIndex)
+  if PlayerHasBuff(crit.spellId, crit.match) then
+    SetProgressToward(def, critIndex, 1)
+    return
+  end
+  local current = LA:GetProgress(def.id, critIndex)
+  if current > 0 then
+    LA:SetProgress(def.id, critIndex, 0)
+    RefreshUI()
+  end
+end
+
 ------------------------------------------------------------------------
 -- Routing
 ------------------------------------------------------------------------
@@ -441,6 +503,8 @@ function Tracker:Route(kind, payload)
           CheckMetaCriteria(def, crit, i)
         elseif kind == "LOGIN" and ctype == "LOGIN" then
           CheckLoginCriteria(def, crit, i)
+        elseif kind == "BUFF" and ctype == "BUFF" then
+          CheckBuffCriteria(def, crit, i)
         end
       end
     end
@@ -611,6 +675,7 @@ local function OnEvent(_, event, ...)
     Tracker:Route("REP")
     Tracker:Route("SKILL")
     Tracker:Route("META")
+    Tracker:Route("BUFF")
     RecordZoneVisit()
     RecordInstanceVisit()
   elseif event == "CHAT_MSG_MONEY" then
@@ -674,6 +739,11 @@ local function OnEvent(_, event, ...)
     DetectMissedHardcoreDeath()
   elseif event == "PLAYER_UNGHOST" or event == "PLAYER_ALIVE" then
     -- no-op; deaths already counted (or caught as a hardcore ghost on login/logout)
+  elseif event == "UNIT_AURA" then
+    local unit = ...
+    if unit == "player" then
+      Tracker:Route("BUFF")
+    end
   end
 end
 
@@ -712,6 +782,11 @@ function Tracker:Start()
   frame:RegisterEvent("CHAT_MSG_SKILL")
   frame:RegisterEvent("SKILL_LINES_CHANGED")
   frame:RegisterEvent("CHAT_MSG_SYSTEM")
+  if frame.RegisterUnitEvent then
+    frame:RegisterUnitEvent("UNIT_AURA", "player")
+  else
+    frame:RegisterEvent("UNIT_AURA")
+  end
   frame:SetScript("OnEvent", OnEvent)
 
   -- Initial evaluation for already-met criteria (e.g. mid-level login)
@@ -723,6 +798,7 @@ function Tracker:Start()
   self:Route("SKILL")
   self:Route("META")
   self:Route("DEATH")
+  self:Route("BUFF")
   RecordZoneVisit()
   RecordInstanceVisit()
 end

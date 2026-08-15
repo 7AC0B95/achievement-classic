@@ -43,9 +43,12 @@ LA.Categories = {
     SKILL      - reach profession/skill rank; match = skill name, value = rank
     META       - complete criteria.value other achievements
     LOGIN      - log in (value usually 1)
+    BUFF       - have a helpful aura; spellId = numeric id, optional match = name
+                 Multi-criteria BUFF achievements require every listed buff at once.
 
   Optional achievement fields:
     hcOnly = true  - only tracked on Hardcore characters
+    factionOnly    - "Alliance" / "Horde"; hidden and untracked for the other faction
 ]]
 
 local GOLD = 10000
@@ -1829,6 +1832,48 @@ LA.Achievements = {
     points = 0,
     category = "Feats of Strength",
     criteria = { { type = "META", value = 150 } },
+  },
+  [9009] = {
+    id = 9009,
+    title = "Spirit of Zandalar",
+    description = "Receive the Spirit of Zandalar from the Heart of Hakkar.",
+    icon = "Interface\\Icons\\Ability_Creature_Poison_05",
+    points = 0,
+    category = "Feats of Strength",
+    criteria = { { type = "BUFF", value = 1, spellId = 24425, match = "Spirit of Zandalar" } },
+  },
+  [9010] = {
+    id = 9010,
+    title = "Rallying Cry of the Dragonslayer",
+    description = "Receive Rallying Cry of the Dragonslayer from an Onyxia or Nefarian head turn-in.",
+    icon = "Interface\\Icons\\INV_Misc_Head_Dragon_01",
+    points = 0,
+    category = "Feats of Strength",
+    criteria = { { type = "BUFF", value = 1, spellId = 22888, match = "Rallying Cry of the Dragonslayer" } },
+  },
+  [9011] = {
+    id = 9011,
+    title = "Warchief's Blessing",
+    description = "Receive Warchief's Blessing from a Rend Blackhand head turn-in.",
+    icon = "Interface\\Icons\\Spell_Arcane_TeleportOrgrimmar",
+    points = 0,
+    category = "Feats of Strength",
+    factionOnly = "Horde",
+    criteria = { { type = "BUFF", value = 1, spellId = 16609, match = "Warchief's Blessing" } },
+  },
+  [9012] = {
+    id = 9012,
+    title = "World Buffed",
+    description = "Be under the effects of Spirit of Zandalar, Rallying Cry of the Dragonslayer, and Warchief's Blessing at the same time.",
+    icon = "Interface\\Icons\\INV_Misc_Horn_01",
+    points = 0,
+    category = "Feats of Strength",
+    factionOnly = "Horde",
+    criteria = {
+      { type = "BUFF", value = 1, spellId = 24425, match = "Spirit of Zandalar" },
+      { type = "BUFF", value = 1, spellId = 22888, match = "Rallying Cry of the Dragonslayer" },
+      { type = "BUFF", value = 1, spellId = 16609, match = "Warchief's Blessing" },
+    },
   },
 }
 

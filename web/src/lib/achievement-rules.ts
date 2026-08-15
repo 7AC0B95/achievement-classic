@@ -6,10 +6,12 @@ export type AchievementCriterionRule = {
   match?: string;
   threshold?: number;
   standing?: string;
+  spellId?: number;
 };
 
 export type AchievementRule = {
   hcOnly?: boolean;
+  factionOnly?: string;
   criteria: AchievementCriterionRule[];
 };
 
@@ -200,6 +202,10 @@ export const ACHIEVEMENT_RULES: Record<string, AchievementRule> = {
   "9006": {"criteria":[{"type":"ZONES","value":50}]},
   "9007": {"criteria":[{"type":"INSTANCE","value":20}]},
   "9008": {"criteria":[{"type":"META","value":150}]},
+  "9009": {"criteria":[{"type":"BUFF","value":1,"match":"Spirit of Zandalar","spellId":24425}]},
+  "9010": {"criteria":[{"type":"BUFF","value":1,"match":"Rallying Cry of the Dragonslayer","spellId":22888}]},
+  "9011": {"criteria":[{"type":"BUFF","value":1,"match":"Warchief's Blessing","spellId":16609}],"factionOnly":"Horde"},
+  "9012": {"criteria":[{"type":"BUFF","value":1,"match":"Spirit of Zandalar","spellId":24425},{"type":"BUFF","value":1,"match":"Rallying Cry of the Dragonslayer","spellId":22888},{"type":"BUFF","value":1,"match":"Warchief's Blessing","spellId":16609}],"factionOnly":"Horde"},
   "10001": {"criteria":[{"type":"DUELS","value":1}]},
   "10002": {"criteria":[{"type":"DUELS","value":5}]},
   "10003": {"criteria":[{"type":"DUELS","value":25}]},

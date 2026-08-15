@@ -38,6 +38,7 @@ while ((m = blockRe.exec(lua))) {
     points,
     icon,
     hcOnly: /hcOnly\s*=\s*true/.test(body),
+    factionOnly: (body.match(/factionOnly\s*=\s*"([^"]+)"/) || [])[1] || undefined,
     criteria: parseCriteriaList(body),
   });
 }
@@ -88,10 +89,12 @@ function parseCriteriaList(body) {
     const match = (inner.match(/match\s*=\s*"((?:\\.|[^"])*)"/) || [])[1];
     const thresholdRaw = inner.match(/threshold\s*=\s*([\d.]+)/);
     const standing = (inner.match(/standing\s*=\s*"([^"]+)"/) || [])[1];
+    const spellIdRaw = inner.match(/spellId\s*=\s*(\d+)/);
     const crit = { type, value };
     if (match) crit.match = unescapeLua(match);
     if (thresholdRaw) crit.threshold = Number(thresholdRaw[1]);
     if (standing) crit.standing = standing;
+    if (spellIdRaw) crit.spellId = Number(spellIdRaw[1]);
     criteria.push(crit);
   }
   return criteria;
@@ -143,10 +146,12 @@ ruleLines.push(`  value: number;`);
 ruleLines.push(`  match?: string;`);
 ruleLines.push(`  threshold?: number;`);
 ruleLines.push(`  standing?: string;`);
+ruleLines.push(`  spellId?: number;`);
 ruleLines.push(`};`);
 ruleLines.push("");
 ruleLines.push(`export type AchievementRule = {`);
 ruleLines.push(`  hcOnly?: boolean;`);
+ruleLines.push(`  factionOnly?: string;`);
 ruleLines.push(`  criteria: AchievementCriterionRule[];`);
 ruleLines.push(`};`);
 ruleLines.push("");
@@ -154,6 +159,7 @@ ruleLines.push(`export const ACHIEVEMENT_RULES: Record<string, AchievementRule> 
 for (const a of achievements) {
   const rule = { criteria: a.criteria };
   if (a.hcOnly) rule.hcOnly = true;
+  if (a.factionOnly) rule.factionOnly = a.factionOnly;
   ruleLines.push(`  ${JSON.stringify(a.id)}: ${JSON.stringify(rule)},`);
 }
 ruleLines.push(`};`);

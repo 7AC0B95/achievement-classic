@@ -104,6 +104,7 @@ local CRIT_LABELS = {
   SKILL = "Skill",
   META = "Achievements",
   LOGIN = "Login",
+  BUFF = "Buff",
 }
 
 local PLAYER_SECTIONS = {
@@ -126,6 +127,12 @@ local function IsDefVisible(def)
   end
   if def.hcOnly and not (LA.IsHardcoreActive and LA:IsHardcoreActive()) then
     return false
+  end
+  if def.factionOnly then
+    local faction = UnitFactionGroup("player")
+    if not faction or faction:lower() ~= def.factionOnly:lower() then
+      return false
+    end
   end
   return true
 end

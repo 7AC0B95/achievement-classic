@@ -1,6 +1,6 @@
 # Classic Glory
 
-Retail-style achievement tracking for **World of Warcraft Classic Era / Hardcore** (addon **v0.9.1**), plus a web platform to share progress on public leaderboards.
+Retail-style achievement tracking for **World of Warcraft Classic Era / Hardcore** (addon **v0.10.0**), plus a web platform to share progress on public leaderboards.
 
 **190+ achievements** across 10 categories: General, Quests, Combat, Exploration, Wealth, Professions, Dungeons, PvP, Hardcore, and Feats of Strength.
 
@@ -96,9 +96,10 @@ A sample file for parser testing lives at [`web/sample-ClassicGlory.lua`](web/sa
 1. Create a project at [supabase.com](https://supabase.com) (or reuse an existing one).
 2. Open **SQL Editor** and run, in order:
 
-   - [`supabase/migrations/20260812100000_laucobs_initial_schema.sql`](supabase/migrations/20260812100000_laucobs_initial_schema.sql) — tables, RLS, and the 190-achievement catalog (fresh projects)
+   - [`supabase/migrations/20260812100000_laucobs_initial_schema.sql`](supabase/migrations/20260812100000_laucobs_initial_schema.sql) — tables, RLS, and the original achievement catalog (fresh projects)
    - [`supabase/migrations/20260812220000_laucobs_catalog_and_stats.sql`](supabase/migrations/20260812220000_laucobs_catalog_and_stats.sql) — only if the database already had the older Achieve-mint schema
    - [`supabase/migrations/20260813220000_character_achievements_delete_policy.sql`](supabase/migrations/20260813220000_character_achievements_delete_policy.sql) — owners can delete leftover unlocks on reseal
+   - [`supabase/migrations/20260815190000_world_buff_feats.sql`](supabase/migrations/20260815190000_world_buff_feats.sql) — Zandalar / Onyxia / Rend Feats of Strength (existing projects)
 
 3. Enable **Email** auth (magic link) under Authentication → Providers.
 4. Add redirect URLs: `http://localhost:3000/auth/callback` and your production callback URL.

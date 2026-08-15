@@ -34,6 +34,13 @@ function auditCriteria(snapshot: SealSnapshot, id: string): string | null {
   const rule = ACHIEVEMENT_RULES[id];
   if (!rule) return `Unknown achievement ${id} cannot be published.`;
 
+  if (
+    rule.factionOnly &&
+    (snapshot.faction || "").toLowerCase() !== rule.factionOnly.toLowerCase()
+  ) {
+    return `Achievement ${id} is not available to this character's faction.`;
+  }
+
   const entry = snapshot.completed.find((c) => String(c.id) === id);
   const earnedLevel = entry?.lvl ?? 0;
   const completedIds = snapshot.completed.map((c) => String(c.id));

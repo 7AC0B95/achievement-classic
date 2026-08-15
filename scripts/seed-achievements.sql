@@ -1,4 +1,4 @@
--- Seed Classic Glory catalog (190 achievements)
+-- Seed Classic Glory catalog (194 achievements)
 insert into public.achievements (id, name, description, category, points, icon)
 values
   ('1001', 'Fresh Meat', 'Create a character and take your first steps into Azeroth. Reach level 2.', 'General', 5, 'Interface\\Icons\\Spell_Nature_Regeneration'),
@@ -187,6 +187,10 @@ values
   ('9006', 'World Traveler', 'Visit 50 different zones.', 'Feats of Strength', 0, 'Interface\\Icons\\INV_Misc_Map_01'),
   ('9007', 'Key to the Kingdom', 'Enter 20 different dungeons or raids.', 'Feats of Strength', 0, 'Interface\\Icons\\INV_Misc_Key_07'),
   ('9008', 'Grandmaster of Everything', 'Earn 150 achievements.', 'Feats of Strength', 0, 'Interface\\Icons\\INV_Jewelry_Talisman_08'),
+  ('9009', 'Spirit of Zandalar', 'Receive the Spirit of Zandalar from the Heart of Hakkar.', 'Feats of Strength', 0, 'Interface\\Icons\\Ability_Creature_Poison_05'),
+  ('9010', 'Rallying Cry of the Dragonslayer', 'Receive Rallying Cry of the Dragonslayer from an Onyxia or Nefarian head turn-in.', 'Feats of Strength', 0, 'Interface\\Icons\\INV_Misc_Head_Dragon_01'),
+  ('9011', 'Warchief''s Blessing', 'Receive Warchief''s Blessing from a Rend Blackhand head turn-in.', 'Feats of Strength', 0, 'Interface\\Icons\\Spell_Arcane_TeleportOrgrimmar'),
+  ('9012', 'World Buffed', 'Be under the effects of Spirit of Zandalar, Rallying Cry of the Dragonslayer, and Warchief''s Blessing at the same time.', 'Feats of Strength', 0, 'Interface\\Icons\\INV_Misc_Horn_01'),
   ('10001', 'Duelist', 'Win a duel.', 'Player vs Player', 5, 'Interface\\Icons\\Ability_DualWield'),
   ('10002', 'Sparring Partner', 'Win 5 duels.', 'Player vs Player', 10, 'Interface\\Icons\\Ability_Warrior_Revenge'),
   ('10003', 'Arena Warmup', 'Win 25 duels.', 'Player vs Player', 15, 'Interface\\Icons\\Ability_Warrior_Revenge'),

@@ -651,6 +651,23 @@ local function DetectMissedHardcoreDeath()
   RecordDeath()
 end
 
+-- CHAT_MSG_TEXT_EMOTE / CHAT_MSG_EMOTE fire for every nearby player.
+-- Count only emotes this character performed.
+local function EmoteIsFromPlayer(sender, guid)
+  local playerGuid = UnitGUID("player")
+  if type(guid) == "string" and guid:find("^Player%-") and playerGuid then
+    return guid == playerGuid
+  end
+  local player = UnitName("player")
+  if type(sender) ~= "string" or sender == "" or not player then
+    return false
+  end
+  if sender == player then
+    return true
+  end
+  return sender:match("^([^-]+)") == player
+end
+
 local function OnEvent(_, event, ...)
   if event == "PLAYER_LEVEL_UP" then
     local newLevel = ...
@@ -729,7 +746,10 @@ local function OnEvent(_, event, ...)
       Tracker:Route("LOOT", { item = item })
     end
   elseif event == "CHAT_MSG_TEXT_EMOTE" or event == "CHAT_MSG_EMOTE" then
-    local msg = ...
+    local msg, sender, _, _, _, _, _, _, _, _, _, guid = ...
+    if not EmoteIsFromPlayer(sender, guid) then
+      return
+    end
     Tracker:Route("EMOTE", { msg = msg })
   elseif event == "UPDATE_FACTION" or event == "CHAT_MSG_COMBAT_FACTION_CHANGE" then
     Tracker:Route("REP")

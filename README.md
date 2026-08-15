@@ -1,6 +1,6 @@
 # Classic Glory
 
-Retail-style achievement tracking for **World of Warcraft Classic Era / Hardcore** (addon **v0.10.0**), plus a web platform to share progress on public leaderboards.
+Retail-style achievement tracking for **World of Warcraft Classic Era / Hardcore** (addon **v0.10.1**), plus a web platform to share progress on public leaderboards.
 
 **190+ achievements** across 10 categories: General, Quests, Combat, Exploration, Wealth, Professions, Dungeons, PvP, Hardcore, and Feats of Strength.
 

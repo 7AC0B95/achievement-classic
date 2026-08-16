@@ -1,16 +1,10 @@
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
-import { ActivityFeed } from "@/components/activity-feed";
+import { ActivityFeedLoader } from "@/components/activity-feed-loader";
 import { AddonDownloadButton } from "@/components/addon-download-button";
-import { LeaderboardTable } from "@/components/leaderboard-table";
-import { fetchLeaderboard, fetchRecentActivity } from "@/lib/data";
+import { LeaderboardLoader } from "@/components/leaderboard-loader";
 
-export default async function HomePage() {
-  const [leaders, activity] = await Promise.all([
-    fetchLeaderboard({ sort: "total_points" }),
-    fetchRecentActivity(5),
-  ]);
-
+export default function HomePage() {
   return (
     <div>
       <section className="relative overflow-hidden border-b border-zinc-800/80">
@@ -74,7 +68,7 @@ export default async function HomePage() {
 
       <section className="mx-auto grid max-w-6xl gap-8 px-4 py-14 sm:px-6 lg:grid-cols-[0.9fr_1.1fr]">
         <div className="animate-rise-delay-1">
-          <ActivityFeed items={activity} />
+          <ActivityFeedLoader limit={5} />
         </div>
         <div className="animate-rise-delay-2">
           <div className="mb-4 flex items-end justify-between gap-3">
@@ -99,7 +93,7 @@ export default async function HomePage() {
               </Link>
             </div>
           </div>
-          <LeaderboardTable rows={leaders.slice(0, 8)} />
+          <LeaderboardLoader sort="total_points" limit={8} />
         </div>
       </section>
     </div>

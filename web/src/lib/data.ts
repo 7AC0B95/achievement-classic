@@ -1,4 +1,9 @@
 import { ACHIEVEMENT_CATALOG } from "@/lib/achievements";
+import {
+  queryLeaderboard,
+  queryRealms,
+  queryRecentActivity,
+} from "@/lib/public-queries";
 import { createClient } from "@/lib/supabase/server";
 import type {
   AchievementRow,
@@ -9,6 +14,28 @@ import type {
   LeaderboardSort,
 } from "@/lib/types";
 import { cache } from "react";
+
+function rethrowIfPrerenderInterrupt(error: unknown) {
+  if (error instanceof Error) {
+    if (
+      error.message.includes("Dynamic server usage") ||
+      error.message.includes("during prerendering")
+    ) {
+      throw error;
+    }
+  }
+  if (error && typeof error === "object" && "digest" in error) {
+    const digest = String((error as { digest: unknown }).digest);
+    if (
+      digest.startsWith("NEXT_") ||
+      digest === "DYNAMIC_SERVER_USAGE" ||
+      digest === "BAILOUT_TO_CLIENT_SIDE_RENDERING" ||
+      digest === "HANGING_PROMISE_REJECTION"
+    ) {
+      throw error;
+    }
+  }
+}
 
 export function isSupabaseEnvReady() {
   return Boolean(
@@ -21,28 +48,15 @@ export async function fetchLeaderboard(filters: {
   classToken?: string;
   status?: string;
   sort?: LeaderboardSort;
+  limit?: number;
 }): Promise<CharacterRow[]> {
   if (!isSupabaseEnvReady()) return [];
 
   try {
     const supabase = await createClient();
-    let query = supabase.from("characters").select("*");
-
-    if (filters.realm) query = query.eq("realm", filters.realm);
-    if (filters.classToken) query = query.eq("class", filters.classToken.toUpperCase());
-    if (filters.status) query = query.eq("status", filters.status);
-
-    if (filters.sort === "achievement_count") {
-      query = query.order("achievement_count", { ascending: false });
-    } else {
-      query = query.order("total_points", { ascending: false });
-    }
-
-    const { data, error } = await query.limit(100);
-    if (error || !data) return [];
-
-    return data as CharacterRow[];
-  } catch {
+    return await queryLeaderboard(supabase, filters);
+  } catch (error) {
+    rethrowIfPrerenderInterrupt(error);
     return [];
   }
 }
@@ -52,15 +66,9 @@ export async function fetchRecentActivity(limit = 12): Promise<CharacterAchievem
 
   try {
     const supabase = await createClient();
-    const { data, error } = await supabase
-      .from("character_achievements")
-      .select("*, achievements(*), characters(id, name, realm, class)")
-      .order("unlocked_at", { ascending: false })
-      .limit(limit);
-
-    if (error || !data) return [];
-    return data as CharacterAchievementRow[];
-  } catch {
+    return await queryRecentActivity(supabase, limit);
+  } catch (error) {
+    rethrowIfPrerenderInterrupt(error);
     return [];
   }
 }
@@ -89,7 +97,8 @@ export async function fetchAchievements(): Promise<AchievementRow[]> {
       }));
     }
     return data as AchievementRow[];
-  } catch {
+  } catch (error) {
+    rethrowIfPrerenderInterrupt(error);
     return ACHIEVEMENT_CATALOG.map((a) => ({
       ...a,
       icon: a.icon ?? null,
@@ -107,7 +116,8 @@ export const getCurrentUser = cache(async () => {
       data: { user },
     } = await supabase.auth.getUser();
     return user;
-  } catch {
+  } catch (error) {
+    rethrowIfPrerenderInterrupt(error);
     return null;
   }
 });
@@ -125,7 +135,8 @@ export const fetchUserCharacters = cache(async (): Promise<CharacterRow[]> => {
       .order("updated_at", { ascending: false });
 
     return (data as CharacterRow[]) ?? [];
-  } catch {
+  } catch (error) {
+    rethrowIfPrerenderInterrupt(error);
     return [];
   }
 });
@@ -149,7 +160,8 @@ export async function fetchUnlockedIdsForCharacters(
       unlocked.get(row.character_id as string)?.add(row.achievement_id as string);
     }
     return unlocked;
-  } catch {
+  } catch (error) {
+    rethrowIfPrerenderInterrupt(error);
     return unlocked;
   }
 }
@@ -163,8 +175,15 @@ export async function fetchUnlockedIdsForCharacter(
 }
 
 export async function fetchRealms(): Promise<string[]> {
-  const rows = await fetchLeaderboard({});
-  return [...new Set(rows.map((r) => r.realm))].sort();
+  if (!isSupabaseEnvReady()) return [];
+
+  try {
+    const supabase = await createClient();
+    return await queryRealms(supabase);
+  } catch (error) {
+    rethrowIfPrerenderInterrupt(error);
+    return [];
+  }
 }
 
 export const fetchCharacterById = cache(async function fetchCharacterById(
@@ -182,7 +201,8 @@ export const fetchCharacterById = cache(async function fetchCharacterById(
 
     if (error || !data) return null;
     return data as CharacterRow;
-  } catch {
+  } catch (error) {
+    rethrowIfPrerenderInterrupt(error);
     return null;
   }
 });
@@ -202,7 +222,8 @@ export async function fetchCharacterAchievements(
 
     if (error || !data) return [];
     return data as CharacterAchievementRow[];
-  } catch {
+  } catch (error) {
+    rethrowIfPrerenderInterrupt(error);
     return [];
   }
 }
@@ -215,7 +236,8 @@ export async function fetchCommunityStats(): Promise<CommunityStats | null> {
     const { data, error } = await supabase.rpc("get_community_stats");
     if (error || !data || typeof data !== "object") return null;
     return data as CommunityStats;
-  } catch {
+  } catch (error) {
+    rethrowIfPrerenderInterrupt(error);
     return null;
   }
 }
@@ -235,7 +257,8 @@ export async function fetchCharacterStats(
 
     if (error || !data) return null;
     return data as CharacterStatsRow;
-  } catch {
+  } catch (error) {
+    rethrowIfPrerenderInterrupt(error);
     return null;
   }
 }

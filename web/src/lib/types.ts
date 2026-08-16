@@ -133,6 +133,90 @@ export interface CharacterProfileAchievement extends AchievementRow {
 
 export type LeaderboardSort = "total_points" | "achievement_count";
 
+export type WowFaction = "Alliance" | "Horde" | "Unknown";
+
+export interface CommunityStatsOverview {
+  characters: number;
+  alive: number;
+  dead: number;
+  avgLevel: number;
+  avgPoints: number;
+  totalPoints: number;
+  totalUnlocks: number;
+  catalogSize: number;
+  maxLevel: number;
+  lastSyncedAt: string | null;
+}
+
+export interface CommunityClassStat {
+  class: string;
+  count: number;
+  alive: number;
+  dead: number;
+  avgLevel: number;
+  avgPoints: number;
+  avgUnlocks: number;
+}
+
+export interface CommunityRaceStat {
+  race: string;
+  faction: WowFaction | string;
+  count: number;
+  alive: number;
+  avgPoints: number;
+}
+
+export interface CommunityFactionStat {
+  faction: WowFaction | string;
+  count: number;
+  alive: number;
+  dead: number;
+  avgPoints: number;
+}
+
+export interface CommunityLevelBand {
+  band: string;
+  count: number;
+}
+
+export interface CommunityRealmStat {
+  realm: string;
+  count: number;
+  avgPoints: number;
+}
+
+export interface CommunityAchievementStat {
+  id: string;
+  name: string;
+  category: string;
+  points: number;
+  unlocks: number;
+  percent: number;
+}
+
+export interface CommunityCategoryStat {
+  category: string;
+  catalog: number;
+  unlocks: number;
+  earnedByAnyone: number;
+  earnedPercent: number;
+  avgUnlocksPerCharacter: number;
+}
+
+export interface CommunityStats {
+  overview: CommunityStatsOverview;
+  classes: CommunityClassStat[];
+  races: CommunityRaceStat[];
+  factions: CommunityFactionStat[];
+  levels: CommunityLevelBand[];
+  realms: CommunityRealmStat[];
+  categories: CommunityCategoryStat[];
+  commonest: CommunityAchievementStat[];
+  rarest: CommunityAchievementStat[];
+  neverEarned: number;
+  neverEarnedExamples: CommunityAchievementStat[];
+}
+
 export interface SyncPayload {
   character: ParsedCharacter;
   completed: ParsedCompletedAchievement[];

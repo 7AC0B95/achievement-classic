@@ -5,6 +5,7 @@ import type {
   CharacterAchievementRow,
   CharacterRow,
   CharacterStatsRow,
+  CommunityStats,
   LeaderboardSort,
 } from "@/lib/types";
 import { cache } from "react";
@@ -203,6 +204,19 @@ export async function fetchCharacterAchievements(
     return data as CharacterAchievementRow[];
   } catch {
     return [];
+  }
+}
+
+export async function fetchCommunityStats(): Promise<CommunityStats | null> {
+  if (!isSupabaseEnvReady()) return null;
+
+  try {
+    const supabase = await createClient();
+    const { data, error } = await supabase.rpc("get_community_stats");
+    if (error || !data || typeof data !== "object") return null;
+    return data as CommunityStats;
+  } catch {
+    return null;
   }
 }
 

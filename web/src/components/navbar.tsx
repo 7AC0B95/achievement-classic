@@ -11,6 +11,7 @@ import { useEffect, useState } from "react";
 const LINKS = [
   { href: "/", label: "Home" },
   { href: "/leaderboard", label: "Leaderboard" },
+  { href: "/stats", label: "Stats" },
   { href: "/achievements", label: "Achievements" },
 ];
 

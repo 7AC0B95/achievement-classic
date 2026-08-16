@@ -84,12 +84,20 @@ export default async function HomePage() {
               </h2>
               <p className="mt-1 text-sm text-zinc-500">Sorted by total achievement points</p>
             </div>
-            <Link
-              href="/leaderboard"
-              className="shrink-0 text-sm text-amber-400 hover:text-amber-300"
-            >
-              Full table →
-            </Link>
+            <div className="flex shrink-0 flex-col items-end gap-1 sm:flex-row sm:items-center sm:gap-3">
+              <Link
+                href="/stats"
+                className="text-sm text-amber-400 hover:text-amber-300"
+              >
+                Community stats →
+              </Link>
+              <Link
+                href="/leaderboard"
+                className="text-sm text-amber-400 hover:text-amber-300"
+              >
+                Full table →
+              </Link>
+            </div>
           </div>
           <LeaderboardTable rows={leaders.slice(0, 8)} />
         </div>

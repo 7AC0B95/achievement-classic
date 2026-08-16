@@ -25,6 +25,35 @@ html {
   min-height: 100%;
   overflow-x: clip;
   background-color: var(--background);
+  scrollbar-width: thin;
+  scrollbar-color: var(--accent) var(--surface);
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--accent) var(--surface);
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--surface);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--accent);
+  border-radius: 999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #fbbf24;
+}
+
+::-webkit-scrollbar-corner {
+  background: var(--surface);
 }
 
 body {

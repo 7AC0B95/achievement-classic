@@ -60,7 +60,7 @@ export default function HomePage() {
             <HowStep
               n="3"
               title="Publish on the web"
-              body="Log out, then Connect and upload ClassicGlory.lua once to sync every character to the leaderboard."
+              body="Log out, then Connect and upload ClassicGlory.lua to sync every character to the leaderboard."
             />
           </div>
         </div>
